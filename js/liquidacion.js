@@ -279,6 +279,7 @@ function generarAcuerdo() {
   const caracteres = { demandado: 'demandado', apoderado: 'apoderado', representante: 'representante legal' };
   const caracterVal = getRadioVal('caracter') || 'demandado';
   const caracter = caracteres[caracterVal];
+  const titInputs = document.querySelectorAll('[id^="titulo-"]');
   const titulosVals = [...titInputs].map(i => i.value.trim()).filter(Boolean);
   let titulosTexto;
   if (titulosVals.length === 0) {
