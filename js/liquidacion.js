@@ -276,7 +276,9 @@ function generarAcuerdo() {
   const apodNombre = APODERADOS[apodVal] || apodVal;
 
   // Títulos ejecutivos
-  const titInputs = document.querySelectorAll('[id^="titulo-"]');
+  const caracteres = { demandado: 'demandado', apoderado: 'apoderado', representante: 'representante legal' };
+  const caracterVal = getRadioVal('caracter') || 'demandado';
+  const caracter = caracteres[caracterVal];
   const titulosVals = [...titInputs].map(i => i.value.trim()).filter(Boolean);
   let titulosTexto;
   if (titulosVals.length === 0) {
@@ -303,7 +305,7 @@ function generarAcuerdo() {
   const fjuicio  = d.juicio       || document.getElementById('liq-juicio')?.value || '—';
 
   const html = `
-<p>En la ciudad de San Isidro a los <strong>${dia}</strong> días del mes de <strong>${mes}</strong> de <strong>${anio}</strong>, entre <strong>${contrib.toUpperCase()} (${tipoId} ${dni})</strong>, con domicilio en <strong>${dom}</strong>, en su carácter de demandado, por una parte, en adelante "LA DEMANDADA"; y por otra, <strong>${apodNombre}</strong>, con domicilio constituido en calle Ituzaingo N° 321 Depto. 52 de San Isidro, en su carácter de apoderado fiscal de la Provincia de Buenos Aires en los términos de los arts. 4 y 4 bis del decreto ley 7543/69 (t.o. y sus modificatorios), en adelante "EL APODERADO", tal como se acredita en los autos caratulados <strong>"FISCO DE LA PROVINCIA DE BUENOS AIRES c/ ${contrib.toUpperCase()} s/APREMIO"</strong>, expediente <strong>${expediente}</strong>, de trámite por ante el Juzgado en lo Contencioso Administrativo N° <strong>${juzgado}</strong>, del Departamento Judicial de San Isidro, con relación a la ejecución fiscal citada por la que se persigue el cobro de los períodos/adelantos individualizados en el/los título/s ejecutivo/s ${titulosTexto}, juicio <strong>${fjuicio}</strong>, con el objeto de poner fin al apremio se hace constar lo siguiente:</p>
+<p>En la ciudad de San Isidro a los <strong>${dia}</strong> días del mes de <strong>${mes}</strong> de <strong>${anio}</strong>, entre <strong>${contrib.toUpperCase()} (${tipoId} ${dni})</strong>, con domicilio en <strong>${dom}</strong>, en su carácter de <strong>${caracter}</strong>, por una parte, en adelante "LA DEMANDADA"; y por otra, <strong>${apodNombre}</strong>, con domicilio constituido en calle Ituzaingo N° 321 Depto. 52 de San Isidro, en su carácter de apoderado fiscal de la Provincia de Buenos Aires en los términos de los arts. 4 y 4 bis del decreto ley 7543/69 (t.o. y sus modificatorios), en adelante "EL APODERADO", tal como se acredita en los autos caratulados <strong>"FISCO DE LA PROVINCIA DE BUENOS AIRES c/ ${contrib.toUpperCase()} s/APREMIO"</strong>, expediente <strong>${expediente}</strong>, de trámite por ante el Juzgado en lo Contencioso Administrativo N° <strong>${juzgado}</strong>, del Departamento Judicial de San Isidro, con relación a la ejecución fiscal citada por la que se persigue el cobro de los períodos/adelantos individualizados en el/los título/s ejecutivo/s ${titulosTexto}, juicio <strong>${fjuicio}</strong>, con el objeto de poner fin al apremio se hace constar lo siguiente:</p>
 
 <p><strong>Primera.</strong> LA DEMANDADA reconoce adeudar al Fisco la totalidad de la deuda reclamada en el apremio detallado, renunciando a toda reclamación impugnatoria administrativa o judicial de la deuda mencionada, también se notifica y consiente expresamente las medidas cautelares trabadas o a trabarse, ya sean judiciales —cuyo levantamiento queda a cargo de LA DEMANDADA cuando corresponda según el plan— o administrativas que se efectivicen sobre bienes muebles, inmuebles, financieros o de cualquier otra naturaleza. El monto que se utiliza, salvo error u omisión, para el presente acuerdo es el de <strong>${fmontoL} (${fmonto})</strong>, que surge de la página de ARBA con la salvedad contenida en los párrafos siguientes de esta primera cláusula. Se adjunta el presente convenio, y como parte integrante del mismo, una impresión conocida y consentida por LA DEMANDADA de los diferentes montos que surgen de la página Web de ARBA, que arrojan importes disímiles según opta LA DEMANDADA y que inciden directamente en el mayor o menor monto de costas que debe abonar. Se deja expresa constancia que en el juicio objeto del presente NO existe oposición de excepciones pendiente de tratamiento. De verificarse el ingreso a un plan con cuotas superior a las manifestadas, LA DEMANDADA deberá cancelar las diferencias que resulten de calcular nuevamente las costas. En el caso en que se disponga judicialmente la devolución de Tasa de Justicia, Sobre Tasa, Gastos de Estudio, Aportes Previsionales u Honorarios, se exime a LA ACTORA y a su apoderada/o de cualquier gestión personal o profesional al respecto.</p>
 
@@ -339,9 +341,9 @@ function limpiarAcuerdo() {
       else el.value = '';
     });
   document.getElementById('titulos-inputs').innerHTML = '';
-  document.querySelectorAll('#rg-ident .radio-opt, #rg-titulos .radio-opt')
+  document.querySelectorAll('#rg-ident .radio-opt, #rg-titulos .radio-opt, #rg-caracter .radio-opt')
     .forEach(o => o.classList.remove('selected'));
-  document.querySelectorAll('input[name="identificacion"], input[name="cantTitulos"]')
+  document.querySelectorAll('input[name="identificacion"], input[name="cantTitulos"], input[name="caracter"]')
     .forEach(i => i.checked = false);
 }
 window.limpiarAcuerdo = limpiarAcuerdo;

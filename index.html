@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liquidaciones y Acuerdos</title>
+  <title>Liquidaciones y Acuerdos — Fuero Comercial</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500&display=swap" rel="stylesheet">
@@ -17,9 +17,9 @@
   <div class="app-header">
     <div>
       <h1>Liquidaciones y Acuerdos</h1>
-      <p>Fisco de la Provincia de Buenos Aires</p>
+      <p>Fisco de la Provincia de Buenos Aires · Fuero Comercial de la Nación</p>
     </div>
-   
+    <span class="header-badge">Fuero Comercial</span>
   </div>
 
   <!-- ══ Pestañas ════════════════════════════════════════════ -->
@@ -237,6 +237,23 @@
           <div class="field">
             <label for="ac-domicilio">Domicilio</label>
             <input type="text" id="ac-domicilio" placeholder="Calle, número, localidad">
+          </div>
+        </div>
+        <div class="section-divider"></div>
+        <div class="field-grid cols-1">
+          <div class="field">
+            <label>Carácter del firmante</label>
+            <div class="radio-group" id="rg-caracter">
+              <label class="radio-opt" onclick="selectRadio('rg-caracter', this, 'demandado')">
+                <input type="radio" name="caracter" value="demandado"><span class="dot"></span>Demandado
+              </label>
+              <label class="radio-opt" onclick="selectRadio('rg-caracter', this, 'apoderado')">
+                <input type="radio" name="caracter" value="apoderado"><span class="dot"></span>Apoderado
+              </label>
+              <label class="radio-opt" onclick="selectRadio('rg-caracter', this, 'representante')">
+                <input type="radio" name="caracter" value="representante"><span class="dot"></span>Representante legal
+              </label>
+            </div>
           </div>
         </div>
       </div>
