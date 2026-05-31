@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liquidaciones y Acuerdos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500&display=swap" rel="stylesheet">
+  <link href="./css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ══ Encabezado ══════════════════════════════════════════ -->
+  <div class="app-header">
+    <div>
+      <h1>Liquidaciones y Acuerdos</h1>
+      <p>Fisco de la Provincia de Buenos Aires</p>
+    </div>
+   
+  </div>
+
+  <!-- ══ Pestañas ════════════════════════════════════════════ -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('liquidacion', this)">Liquidación</button>
+    <button class="tab-btn"        onclick="switchTab('acuerdo', this)">Acuerdo de pago</button>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════
+       TAB 1 — LIQUIDACIÓN
+       ════════════════════════════════════════════════════════ -->
+  <div id="tab-liquidacion" class="tab-panel active">
+
+    <div id="form-liquidacion">
+
+      <!-- Datos del caso -->
+      <div class="card">
+        <div class="card-title">Datos del caso</div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="liq-contribuyente">Apellido y nombre del contribuyente</label>
+            <input type="text" id="liq-contribuyente" placeholder="Ej: García, Juan Carlos">
+          </div>
+          <div class="field">
+            <label for="liq-juicio">Número de juicio</label>
+            <input type="text" id="liq-juicio" placeholder="Ej: 12345/2024">
+          </div>
+        </div>
+      </div>
+
+      <!-- Monto y sobretasa -->
+      <div class="card">
+        <div class="card-title">Monto y tasas</div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="liq-monto">Monto reclamado ($)</label>
+            <input type="number" id="liq-monto" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="field">
+            <label>Sobre tasa</label>
+            <div class="radio-group" id="rg-sobretasa">
+              <label class="radio-opt" onclick="selectRadio('rg-sobretasa', this, '5')">
+                <input type="radio" name="sobretasa" value="5"><span class="dot"></span>5 %
+              </label>
+              <label class="radio-opt" onclick="selectRadio('rg-sobretasa', this, '10')">
+                <input type="radio" name="sobretasa" value="10"><span class="dot"></span>10 %
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Honorarios y mínimo -->
+      <div class="card">
+        <div class="card-title">Honorarios</div>
+        <div class="field-grid">
+          <div class="field">
+            <label>Porcentaje de honorarios</label>
+            <select id="liq-honorarios">
+              <option value="6"  selected>6 %</option>
+              <option value="9" >9 %</option>
+              <option value="12">12 %</option>
+              <option value="15">15 %</option>
+              <option value="18">18 %</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Honorario mínimo aplicable</label>
+            <div class="radio-group" id="rg-minimo">
+              <label class="radio-opt" onclick="selectRadio('rg-minimo', this, 'A')">
+                <input type="radio" name="minimoHono" value="A"><span class="dot"></span>$ 149.250
+              </label>
+              <label class="radio-opt" onclick="selectRadio('rg-minimo', this, 'B')">
+                <input type="radio" name="minimoHono" value="B"><span class="dot"></span>$ 101.994
+              </label>
+            </div>
+            <p class="hint" id="gastos-hint" style="display:none"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gastos y servicios registrales -->
+      <div class="card">
+        <div class="card-title">Gastos y servicios registrales</div>
+        <div class="field-grid">
+
+          <!-- Gastos: se ocultan si el mínimo es B -->
+          <div class="field" id="gastos-wrap">
+            <label>Gastos de juicio</label>
+            <div class="radio-group" id="rg-gastos">
+              <label class="radio-opt" onclick="selectRadio('rg-gastos', this, '24875')">
+                <input type="radio" name="gastos" value="24875"><span class="dot"></span>$ 24.875
+              </label>
+              <label class="radio-opt" onclick="selectRadio('rg-gastos', this, '49750')">
+                <input type="radio" name="gastos" value="49750"><span class="dot"></span>$ 49.750
+              </label>
+            </div>
+          </div>
+
+          <!-- Servicios registrales -->
+          <div class="field">
+            <label>Servicios registrales</label>
+            <div class="radio-group" id="rg-servicios">
+              <label class="radio-opt" onclick="selectRadio('rg-servicios', this, 'SI')">
+                <input type="radio" name="servicios" value="SI"><span class="dot"></span>Sí
+              </label>
+              <label class="radio-opt" onclick="selectRadio('rg-servicios', this, 'NO')">
+                <input type="radio" name="servicios" value="NO"><span class="dot"></span>No
+              </label>
+            </div>
+            <div id="selector-serv-wrap" style="margin-top:8px">
+              <select id="liq-selectorServicios">
+                <option value="84000" >$ 84.000</option>
+                <option value="168000">$ 168.000</option>
+                <option value="252000">$ 252.000</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="limpiarLiq()">Limpiar</button>
+        <button class="btn btn-primary" onclick="calcularLiq()">Calcular liquidación →</button>
+      </div>
+    </div><!-- /form-liquidacion -->
+
+
+    <!-- ── Resultado de la liquidación ───────────────────── -->
+    <div class="resultado-area" id="resultado-liq">
+
+      <div class="resultado-card">
+        <div class="liq-header">
+          <div>
+            <div class="liq-title" id="liq-res-titulo">Liquidación</div>
+          </div>
+          <div class="liq-date" id="liq-res-fecha"></div>
+        </div>
+        <div class="liq-grid" id="liq-items"></div>
+        <div class="liq-total">
+          <span class="liq-total-label">Total gastos y honorarios</span>
+          <span class="liq-total-val" id="liq-total-val">—</span>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn" onclick="window.print()">Imprimir</button>
+        <button class="btn" onclick="ocultarResultado()">← Volver</button>
+      </div>
+
+    </div><!-- /resultado-liq -->
+
+  </div><!-- /tab-liquidacion -->
+
+
+
+  <div id="tab-acuerdo" class="tab-panel">
+
+    <div id="form-acuerdo">
+
+      <!-- Apoderado y juzgado -->
+      <div class="card">
+        <div class="card-title">Apoderado y juzgado</div>
+        <div class="field-grid cols-3">
+          <div class="field">
+            <label for="ac-apoderado">Apoderado/a</label>
+            <select id="ac-apoderado">
+              <option value="natalia" >Natalia</option>
+              <option value="mauricio" selected>Mauricio</option>
+              <option value="maximina">Maximina</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ac-juzgado">Juzgado</label>
+            <select id="ac-juzgado">
+              <option value="1">Juzgado N° 1</option>
+              <option value="2" selected>Juzgado N° 2</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ac-expediente">Expediente</label>
+            <input type="text" id="ac-expediente" placeholder="Ej: 45321/2024">
+          </div>
+        </div>
+      </div>
+
+      <!-- Datos del contribuyente -->
+      <div class="card">
+        <div class="card-title">Datos del contribuyente</div>
+        <div class="field-grid">
+          <div class="field">
+            <label>Tipo de identificación</label>
+            <div class="radio-group" id="rg-ident">
+              <label class="radio-opt" onclick="selectRadio('rg-ident', this, 'dni')">
+                <input type="radio" name="identificacion" value="dni"><span class="dot"></span>DNI
+              </label>
+              <label class="radio-opt" onclick="selectRadio('rg-ident', this, 'cuit')">
+                <input type="radio" name="identificacion" value="cuit"><span class="dot"></span>CUIT
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label for="ac-dni">Número de DNI / CUIT</label>
+            <input type="text" id="ac-dni" placeholder="Ej: 20-12345678-5">
+          </div>
+        </div>
+        <div class="section-divider"></div>
+        <div class="field-grid">
+          <div class="field">
+            <label for="ac-contribuyente">Apellido y nombre</label>
+            <input type="text" id="ac-contribuyente" placeholder="Ej: García, Juan Carlos">
+          </div>
+          <div class="field">
+            <label for="ac-domicilio">Domicilio</label>
+            <input type="text" id="ac-domicilio" placeholder="Calle, número, localidad">
+          </div>
+        </div>
+      </div>
+
+      <!-- Títulos ejecutivos -->
+      <div class="card">
+        <div class="card-title">Títulos ejecutivos</div>
+        <div class="field">
+          <label>Cantidad de títulos</label>
+          <div class="radio-group" id="rg-titulos">
+            <label class="radio-opt" onclick="selectRadio('rg-titulos',this,'1'); showTitulos(1)">
+              <input type="radio" name="cantTitulos" value="1"><span class="dot"></span>1
+            </label>
+            <label class="radio-opt" onclick="selectRadio('rg-titulos',this,'2'); showTitulos(2)">
+              <input type="radio" name="cantTitulos" value="2"><span class="dot"></span>2
+            </label>
+            <label class="radio-opt" onclick="selectRadio('rg-titulos',this,'3'); showTitulos(3)">
+              <input type="radio" name="cantTitulos" value="3"><span class="dot"></span>3
+            </label>
+            <label class="radio-opt" onclick="selectRadio('rg-titulos',this,'4'); showTitulos(4)">
+              <input type="radio" name="cantTitulos" value="4"><span class="dot"></span>4
+            </label>
+            <label class="radio-opt" onclick="selectRadio('rg-titulos',this,'5'); showTitulos(5)">
+              <input type="radio" name="cantTitulos" value="5"><span class="dot"></span>5
+            </label>
+            <label class="radio-opt" onclick="selectRadio('rg-titulos',this,'6'); showTitulos(6)">
+              <input type="radio" name="cantTitulos" value="6"><span class="dot"></span>6
+            </label>
+          </div>
+        </div>
+        <div class="titulos-container" id="titulos-inputs"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="limpiarAcuerdo()">Limpiar</button>
+        <button class="btn btn-primary" onclick="generarAcuerdo()">Generar acuerdo →</button>
+      </div>
+    </div><!-- /form-acuerdo -->
+
+
+    <!-- ── Resultado del acuerdo ──────────────────────────── -->
+    <div class="resultado-area" id="resultado-acuerdo">
+
+      <div class="action-bar">
+        <button class="btn" onclick="window.print()">Imprimir</button>
+        <button class="btn" onclick="ocultarAcuerdo()">← Volver</button>
+      </div>
+
+      <div class="resultado-card">
+        <div style="text-align:center; margin-bottom:1.5rem; padding-bottom:1.25rem; border-bottom:1px solid var(--color-border)">
+          <div style="font-size:16px;font-weight:500">Acuerdo de Pago</div>
+        </div>
+        <div class="acuerdo-body" id="acuerdo-texto"></div>
+        <div class="firma-row">
+          <div class="firma-box">Firma del/la apoderado/a fiscal</div>
+          <div class="firma-box">Firma del demandado</div>
+        </div>
+      </div>
+
+    </div><!-- /resultado-acuerdo -->
+
+  </div><!-- /tab-acuerdo -->
+
+</div><!-- /app-wrapper -->
+
+<script src="./js/liquidacion.js"></script>
+</body>
+</html>
