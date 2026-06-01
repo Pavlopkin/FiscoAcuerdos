@@ -330,11 +330,26 @@
     function imprimirPDF(elementId) {
       const el = document.getElementById(elementId);
 
-      // Ocultar elementos que no deben aparecer en el PDF
+      // Buscamos los elementos internos del área de resultado
       const actionBar = el.querySelector('.action-bar');
+      const resultadoCard = el.querySelector('.resultado-card');
       const encabezado = el.querySelector('.resultado-card > div:first-child');
+
+      // Ocultar la barra de botones para que no salga en el PDF
       if (actionBar) actionBar.style.display = 'none';
       if (encabezado) encabezado.style.borderBottom = 'none';
+
+      // MODIFICACIÓN: Quitamos los estilos de "tarjeta" temporalmente antes de capturar el PDF
+      if (resultadoCard) {
+        resultadoCard.style.boxShadow = 'none';
+        resultadoCard.style.border = 'none';
+        resultadoCard.style.background = 'transparent';
+        resultadoCard.style.padding = '0';
+      }
+      
+      // Forzamos que el fondo del área total sea blanco/transparente
+      el.style.background = 'white';
+      el.style.boxShadow = 'none';
 
       const opciones = {
         margin:      [15, 20, 15, 20],
@@ -345,9 +360,18 @@
       };
 
       html2pdf().set(opciones).from(el).save().then(() => {
-        // Restaurar después de generar
+        // RESTAURACIÓN: Devolvemos los estilos originales para la visualización en pantalla
         if (actionBar) actionBar.style.display = '';
         if (encabezado) encabezado.style.borderBottom = '';
+        
+        if (resultadoCard) {
+          resultadoCard.style.boxShadow = '';
+          resultadoCard.style.border = '';
+          resultadoCard.style.background = '';
+          resultadoCard.style.padding = '';
+        }
+        el.style.background = '';
+        el.style.boxShadow = '';
       });
     }
   </script>
