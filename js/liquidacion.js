@@ -48,10 +48,15 @@ function getRadioVal(name) {
 }
 
 function selectRadio(groupId, el, val) {
-  document.querySelectorAll('#' + groupId + ' .radio-opt')
-    .forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll('#' + groupId + ' .radio-opt').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
-  el.querySelector('input[type="radio"]').checked = true;
+  const input = el.querySelector('input[type="radio"]');
+  if (input) {
+    input.checked = true;
+    // Disparar manualmente los cambios para evitar que se congele la interfaz
+    if (input.name === 'minimoHono') onMinimoChange();
+    if (input.name === 'servicios') onServiciosChange();
+  }
 }
 window.selectRadio = selectRadio;
 
@@ -62,7 +67,7 @@ function numeroALetras(n) {
   const cents  = parseInt(partes[1]);
 
   const u = ['','un','dos','tres','cuatro','cinco','seis','siete','ocho','nueve',
-             'diez','once','doce','trece','catorce','quince','dieciséis',
+             'diez','once','doce','trece','catorce','quince','diecisiete',
              'diecisiete','dieciocho','diecinueve','veinte'];
   const d = ['','','veinti','treinta','cuarenta','cincuenta',
              'sesenta','setenta','ochenta','noventa'];
@@ -172,20 +177,16 @@ function calcularLiq() {
   const honoCalculado = monto * (pct / 100);
   const honorarios    = Math.max(honoCalculado, minimoValor);
 
-  // Rubros — fórmulas corregidas
+  // Rubros — fórmulas
   const tasa      = monto * 0.022;                        // 2,2 % del monto
   const sobretasa = tasa * (sobretasaPct / 100);          // 5 % o 10 % de la tasa
   const aportes   = honorarios * 0.10;                    // 10 % s/ honorarios
   const honofisco = honorarios * 0.40;                    // interno, para el acuerdo
   const honoapod  = honorarios * 0.60;                    // interno, para el acuerdo
 
-  // Planilla 1: costas (tasa + sobretasa + gastos + servicios)
+  // Costas e Impuestos
   const totalCostas = tasa + sobretasa + gastos + servMonto;
-
-  // Planilla 2: honorarios + aportes
   const subtotalHono = honorarios + aportes;
-
-  // Total general
   const totalGeneral = totalCostas + subtotalHono;
 
   // Fecha
@@ -307,7 +308,7 @@ function generarAcuerdo() {
   const d = window._liqData || {};
   const fmonto   = d.monto        ? formatPeso(d.monto)         : '$ ...........';
   const fmontoL  = d.monto        ? numeroALetras(d.monto)      : '............';
-  const ftasa    = d.tasa         ? formatPeso(d.tasa)          : '$ ...........'; // <- CORREGIDO AQUÍ
+  const ftasa    = d.tasa         ? formatPeso(d.tasa)          : '$ ...........';
   const fstasa   = d.sobretasa    ? formatPeso(d.sobretasa)     : '$ ...........';
   const fhono    = d.honorarios   ? formatPeso(d.honorarios)    : '$ ...........';
   const fhonoF   = d.honofisco    ? formatPeso(d.honofisco)     : '$ ...........';
@@ -318,7 +319,7 @@ function generarAcuerdo() {
   const fserv    = (d.servMonto && d.servMonto > 0) ? formatPeso(d.servMonto) : '$ ...........';
   const fjuicio  = d.juicio       || document.getElementById('liq-juicio')?.value || '—';
 
-  // Contenedor optimizado con márgenes mínimos para evitar saltos de página huérfanos
+  // Contenedor compacto con márgenes de impresión seguros para forzar exactamente 2 carillas
   const html = `
 <div style="text-align: justify; text-justify: inter-word; word-break: break-word; overflow-wrap: break-word; line-height: 1.4; color: var(--color-text); font-size: 13px; padding: 0px 5px;">
 
@@ -326,13 +327,11 @@ function generarAcuerdo() {
 
   <p style="margin-top: 0; margin-bottom: 0; break-after: page; page-break-after: always;"><strong>PRIMERA:</strong> LA DEMANDADA reconoce adeudar al Fisco la totalidad de la deuda reclamada en el apremio detallado, renunciando a toda reclamación impugnatoria administrativa o judicial de la deuda mencionada, también se notifica y consiente expresamente las medidas cautelares trabadas o a trabarse, ya sean judiciales -cuyo levantamiento queda a cargo de LA DEMANDADA cuando corresponda según el plan- o administrativas que se efectivicen sobre bienes muebles, inmuebles, financieros o de cualquier otra naturaleza. El monto que se utiliza, salvo error u omisión, para el presente acuerdo es el de <strong>${fmontoL} (${fmonto})</strong>, que surge de la página de ARBA con la salvedad contenida en los párrafos siguientes de esta primera cláusula. Se adjunta el presente convenio, y como parte integrante del mismo, una impresión conocida y consentida por LA DEMANDADA de los diferentes montos que surgen de la página Web de ARBA, que arrojan importes disímiles según opta LA DEMANDADA y que inciden directamente en el mayor o menor monto de costas que debe abonar. Es decir, conoce que su elección irrevocable es abonar la deuda en ARBA en la cantidad de CUOTAS que declara al apoderado, y que en caso de posteriormente a la suscripción del acuerdo cambiar de plan, dicho acto tiene consecuencias directas en el monto total de las costas a abonar por este convenio. Conste que se ha llegado a concluir este acuerdo por vía telefónica y/o electrónica quedando sujeto su perfeccionamiento a los pagos íntegros de todos los rubros detallados abajo y a la regularización del crédito de ARBA por parte del LA DEMANDADA. Se deja expresa constancia que en el juicio objeto del presente NO existe oposición de excepciones pendiente de tratamiento. De verificarse el ingreso a un plan con cuotas superior a las manifestadas, LA DEMANDADA deberá cancelar las diferencias que resulten de calcular nuevamente las costas. Para ello, se tomará el monto que corresponda consignado en el formulario de acogimiento expedido por ARBA. Si se le permitiere por cualquier motivo ingresar en un plan por un monto menor nada podrá reclamar LA DEMANDADA a LA ACTORA, ni al Apoderada/o Fiscal, ni a la Caja de Previsión, ni al Poder Judicial ya que lo ha hecho voluntariamente y prestando su consentimiento claramente informado. En el caso en que se disponga judicialmente, aún contra la voluntad expresada por LA DEMANDADA en este convenio, la devolución de Tasa de Justicia, Sobre Tasa, Gastos de Estudio, Aportes Previsionales u Honorarios, se exime a LA ACTORA y a su apoderada/o de cualquier gestión personal o profesional al respecto. Se deja constancia que los montos tenidos en cuenta surgen de la Web de ARBA en el día de hoy, que varían diariamente por acumulación de intereses, que si existe plan de facilidades puede haber vencido el horario para efectuar el acogimiento, que el eventual plan de facilidades tiene fecha de finalización que LA DEMANDADA manifiesta conocer, e incluso que para su tipo de deuda puede no existir plan de facilidades.-</p>
   
-  <!-- CORTE ESTRICTO A PÁGINA 2 -->
-
   <p style="margin-top: 0; margin-bottom: 6px;"><strong>SEGUNDA:</strong> Las partes acuerdan fijar los honorarios del letrado apoderada/o del Fisco de la Provincia de Buenos Aires, en la suma total de <strong>${fhonoL} (${fhono})</strong> pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente. Asimismo, las partes convienen que dicho monto será cancelado por LA DEMANDADA en UN PAGO.-</p>
 
   <p style="margin-top: 0; margin-bottom: 6px;"><strong>TERCERA:</strong> En consecuencia, LA DEMANDADA asume e integra, las siguientes sumas:<br>
   1) <strong>${ftasa}</strong> en concepto de Tasa de Justicia,<br>
-  2) <strong>${fstasa}</strong> en concept de Sobre Tasa de Justicia,<br>
+  2) <strong>${fstasa}</strong> en concepto de Sobre Tasa de Justicia,<br>
   3) <strong>${fhono}</strong> en concepto de honorarios convenidos por la actuación profesional de la parte actora en los autos citados (de los cuales <strong>${fhonoF}</strong> en concepto de Honorarios para Fiscalía de Estado en virtud del convenio de cesión correspondiente al 40% de la totalidad de los honorarios convenidos, y <strong>${fhonoA}</strong> (60%) por la actuación del profesional de la parte actora) –pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente–<br>
   4) <strong>${faporte}</strong> en concepto de aportes previsionales a cargo de LA DEMANDADA;<br>
   5) <strong>${fserv}</strong> en concepto de Servicios Registrales;<br>
@@ -377,8 +376,13 @@ window.ocultarAcuerdo = ocultarAcuerdo;
 
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('rg-minimo')?.addEventListener('click', onMinimoChange);
-  document.getElementById('rg-servicios')?.addEventListener('click', onServiciosChange);
+  // Asignar el evento dinámico directamente a los elementos de tipo radio input internos
+  document.querySelectorAll('input[name="minimoHono"]').forEach(radio => {
+    radio.addEventListener('change', onMinimoChange);
+  });
+  document.querySelectorAll('input[name="servicios"]').forEach(radio => {
+    radio.addEventListener('change', onServiciosChange);
+  });
   onMinimoChange();
   onServiciosChange();
 });
