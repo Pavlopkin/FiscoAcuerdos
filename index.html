@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500&display=swap" rel="stylesheet">
   <link href="./css/style.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -168,7 +169,7 @@
       </div>
 
       <div class="action-bar">
-        <button class="btn" onclick="window.print()">Imprimir</button>
+        <button class="btn" onclick="imprimirPDF('resultado-liq')">Imprimir</button>
         <button class="btn" onclick="ocultarResultado()">← Volver</button>
       </div>
 
@@ -297,11 +298,11 @@
     <!-- ── Resultado del acuerdo ──────────────────────────── -->
     <div class="resultado-area" id="resultado-acuerdo">
 
-<div class="action-bar">
-  <button class="btn" onclick="window.print()">Imprimir</button>
-  <button class="btn" onclick="descargarAcuerdoWord()">⬇ Descargar Word</button>  <!-- ← NUEVO -->
-  <button class="btn" onclick="ocultarAcuerdo()">← Volver</button>
-</div>
+      <div class="action-bar">
+        <button class="btn" onclick="imprimirPDF('resultado-acuerdo')">Imprimir</button>
+        <button class="btn" onclick="descargarAcuerdoWord()">⬇ Descargar Word</button>
+        <button class="btn" onclick="ocultarAcuerdo()">← Volver</button>
+      </div>
 
       <div class="resultado-card">
         <div style="text-align:center; margin-bottom:1.5rem; padding-bottom:1.25rem; border-bottom:1px solid var(--color-border)">
@@ -324,5 +325,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <script src="./js/liquidacion.js"></script>
   <script src="./js/descargar-acuerdo-word.js"></script>
+
+  <script>
+    function imprimirPDF(elementId) {
+      const el = document.getElementById(elementId);
+      const opciones = {
+        margin:       [15, 20, 15, 20],
+        filename:     'acuerdo-fisco.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opciones).from(el).save();
+    }
+  </script>
+
 </body>
 </html>
