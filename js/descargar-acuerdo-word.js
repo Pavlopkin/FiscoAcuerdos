@@ -1,6 +1,5 @@
 function descargarAcuerdoWord() {
 
-  // La librería docx UMD expone sus clases directamente en window
   const Document      = window.Document      || (window.docx && window.docx.Document);
   const Packer        = window.Packer        || (window.docx && window.docx.Packer);
   const Paragraph     = window.Paragraph     || (window.docx && window.docx.Paragraph);
@@ -25,10 +24,10 @@ function descargarAcuerdoWord() {
   const apoderado    = apoderadoMap[apoderadoVal] || apoderadoVal;
 
   const juzgadoNum = document.getElementById('ac-juzgado').value;
-  const juzgado    = `Juzgado N\u00b0 ${juzgadoNum}`;
+  const juzgado    = 'Juzgado N\u00b0 ' + juzgadoNum;
 
   const expediente = document.getElementById('ac-expediente').value.trim() || '_______________';
-  const tipoId     = document.querySelector('input[name="identificacion"]:checked')?.value?.toUpperCase() || 'DNI/CUIT';
+  const tipoId     = (document.querySelector('input[name="identificacion"]:checked')?.value || 'DNI').toUpperCase();
   const numeroId   = document.getElementById('ac-dni').value.trim() || '_______________';
   const nombre     = document.getElementById('ac-contribuyente').value.trim() || '_______________';
   const domicilio  = document.getElementById('ac-domicilio').value.trim() || '_______________';
@@ -41,8 +40,8 @@ function descargarAcuerdoWord() {
 
   const titulos = [];
   for (let i = 1; i <= parseInt(cantTitulos); i++) {
-    const periodo = document.getElementById(`titulo-periodo-${i}`)?.value?.trim() || '';
-    const monto   = document.getElementById(`titulo-monto-${i}`)?.value?.trim() || '';
+    const periodo = document.getElementById('titulo-periodo-' + i)?.value?.trim() || '';
+    const monto   = document.getElementById('titulo-monto-' + i)?.value?.trim() || '';
     if (periodo || monto) titulos.push({ n: i, periodo, monto });
   }
 
@@ -53,25 +52,29 @@ function descargarAcuerdoWord() {
 
   // ── Helpers ──────────────────────────────────────────────
 
-  const borde    = { style: BorderStyle.SINGLE, size: 1, color: 'C8D0DB' };
-  const bordes   = { top: borde, bottom: borde, left: borde, right: borde };
-  const sinBorde = { style: BorderStyle.NONE,   size: 0, color: 'FFFFFF' };
-  const sinBordes = { top: sinBorde, bottom: sinBorde, left: sinBorde, right: sinBorde };
+  const PW        = 11906;
+  const ML        = 1134;
+  const CONTENIDO = PW - ML * 2; // 9638 DXA
 
-  const PW       = 11906;
-  const ML       = 1134;
-  const CONTENIDO = PW - ML * 2;
+  // Borde visible para tablas de datos
+  const borde  = { style: BorderStyle.SINGLE, size: 1, color: 'C8D0DB' };
+  const bordes = { top: borde, bottom: borde, left: borde, right: borde };
 
-  function p(texto, opts = {}) {
+  // Borde invisible — usar SINGLE con color blanco (NONE rompe docx.js)
+  const invisible  = { style: BorderStyle.SINGLE, size: 1, color: 'FFFFFF' };
+  const sinBordes  = { top: invisible, bottom: invisible, left: invisible, right: invisible };
+
+  function p(texto, opts) {
+    opts = opts || {};
     return new Paragraph({
       alignment: opts.center ? AlignmentType.CENTER : AlignmentType.LEFT,
-      spacing: { before: opts.antes ?? 80, after: opts.despues ?? 80 },
+      spacing: { before: opts.antes != null ? opts.antes : 80, after: opts.despues != null ? opts.despues : 80 },
       children: [new TextRun({
         text:  texto,
         bold:  !!opts.bold,
-        size:  opts.size ?? 22,
+        size:  opts.size || 22,
         font:  'Arial',
-        color: opts.color ?? '1A1A2E',
+        color: opts.color || '1A1A2E',
       })]
     });
   }
@@ -80,11 +83,12 @@ function descargarAcuerdoWord() {
     return new Paragraph({
       spacing: { before: 0, after: 0 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'D0D7E3', space: 1 } },
-      children: []
+      children: [new TextRun({ text: '' })]
     });
   }
 
-  function celda(texto, col, opts = {}) {
+  function celda(texto, col, opts) {
+    opts = opts || {};
     return new TableCell({
       borders: bordes,
       width: { size: col, type: WidthType.DXA },
@@ -95,8 +99,8 @@ function descargarAcuerdoWord() {
       children: [new Paragraph({
         children: [new TextRun({
           text:  texto,
-          bold:  !!opts.bold || !!opts.header,
-          size:  opts.size ?? 20,
+          bold:  !!(opts.bold || opts.header),
+          size:  opts.size || 20,
           font:  'Arial',
           color: opts.header ? '2C3A5A' : '1A1A2E',
         })]
@@ -104,7 +108,28 @@ function descargarAcuerdoWord() {
     });
   }
 
-  function fila(...celdas) { return new TableRow({ children: celdas }); }
+  function celdaFirma(col, linea1, linea2) {
+    return new TableCell({
+      borders: sinBordes,
+      width: { size: col, type: WidthType.DXA },
+      margins: { top: 600, bottom: 100, left: 200, right: 200 },
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          border: { top: { style: BorderStyle.SINGLE, size: 8, color: '4A5568', space: 60 } },
+          children: [new TextRun({ text: linea1, size: 20, font: 'Arial', bold: true, color: '1A1A2E' })]
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: linea2, size: 18, font: 'Arial', color: '666666' })]
+        })
+      ]
+    });
+  }
+
+  function fila() {
+    return new TableRow({ children: Array.from(arguments) });
+  }
 
   // ── Tabla de datos ───────────────────────────────────────
 
@@ -115,15 +140,15 @@ function descargarAcuerdoWord() {
     width: { size: CONTENIDO, type: WidthType.DXA },
     columnWidths: [c1, c2],
     rows: [
-      fila(celda('Campo', c1, { header: true }), celda('Valor', c2, { header: true })),
-      fila(celda('Apoderado/a', c1),             celda(apoderado, c2, { bold: true })),
-      fila(celda('Juzgado', c1),                 celda(juzgado, c2)),
-      fila(celda('Expediente N\u00b0', c1),      celda(expediente, c2)),
-      fila(celda(`N\u00b0 de ${tipoId}`, c1),    celda(numeroId, c2)),
-      fila(celda('Apellido y nombre', c1),        celda(nombre, c2, { bold: true })),
-      fila(celda('Domicilio', c1),               celda(domicilio, c2)),
-      fila(celda('Car\u00e1cter del firmante', c1), celda(caracter, c2)),
-      fila(celda('Cantidad de t\u00edtulos', c1),   celda(cantTitulos.toString(), c2)),
+      fila(celda('Campo', c1, { header: true }),              celda('Valor', c2, { header: true })),
+      fila(celda('Apoderado/a', c1),                          celda(apoderado, c2, { bold: true })),
+      fila(celda('Juzgado', c1),                              celda(juzgado, c2)),
+      fila(celda('Expediente N\u00b0', c1),                   celda(expediente, c2)),
+      fila(celda('N\u00b0 de ' + tipoId, c1),                 celda(numeroId, c2)),
+      fila(celda('Apellido y nombre', c1),                    celda(nombre, c2, { bold: true })),
+      fila(celda('Domicilio', c1),                            celda(domicilio, c2)),
+      fila(celda('Car\u00e1cter del firmante', c1),            celda(caracter, c2)),
+      fila(celda('Cantidad de t\u00edtulos', c1),              celda(cantTitulos.toString(), c2)),
     ]
   });
 
@@ -134,68 +159,46 @@ function descargarAcuerdoWord() {
     const ct1 = Math.round(CONTENIDO * 0.12);
     const ct2 = Math.round(CONTENIDO * 0.50);
     const ct3 = CONTENIDO - ct1 - ct2;
+    const filasTit = [fila(
+      celda('N\u00b0', ct1, { header: true }),
+      celda('Per\u00edodo', ct2, { header: true }),
+      celda('Monto', ct3, { header: true })
+    )];
+    titulos.forEach(function(t) {
+      filasTit.push(fila(
+        celda(t.n.toString(), ct1),
+        celda(t.periodo, ct2),
+        celda(t.monto ? ('$ ' + t.monto) : '', ct3)
+      ));
+    });
     tablaTitulos = new Table({
       width: { size: CONTENIDO, type: WidthType.DXA },
       columnWidths: [ct1, ct2, ct3],
-      rows: [
-        fila(celda('N\u00b0', ct1, { header: true }), celda('Per\u00edodo', ct2, { header: true }), celda('Monto', ct3, { header: true })),
-        ...titulos.map(t => fila(
-          celda(t.n.toString(), ct1),
-          celda(t.periodo, ct2),
-          celda(t.monto ? `$ ${t.monto}` : '', ct3)
-        ))
-      ]
+      rows: filasTit
     });
   }
 
-  // ── Texto del acuerdo en párrafos ────────────────────────
+  // ── Texto del acuerdo ────────────────────────────────────
 
   const parrafosAcuerdo = textoAcuerdo
     .split('\n')
-    .filter(l => l.trim() !== '')
-    .map(linea => p(linea, { antes: 120, despues: 60, size: 22 }));
+    .filter(function(l) { return l.trim() !== ''; })
+    .map(function(linea) { return p(linea, { antes: 120, despues: 60, size: 22 }); });
 
   // ── Tabla de firmas ──────────────────────────────────────
 
   const cf = Math.floor(CONTENIDO / 2);
+  const nombreFirma = nombre !== '_______________' ? nombre : ' ';
+  const pieDemandado = caracter + ' \u2014 ' + tipoId + ' ' + numeroId;
+
   const tablafirmas = new Table({
     width: { size: CONTENIDO, type: WidthType.DXA },
     columnWidths: [cf, CONTENIDO - cf],
     rows: [
       new TableRow({
         children: [
-          new TableCell({
-            borders: sinBordes,
-            width: { size: cf, type: WidthType.DXA },
-            margins: { top: 600, bottom: 100, left: 200, right: 200 },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                border: { top: { style: BorderStyle.SINGLE, size: 8, color: '4A5568', space: 60 } },
-                children: [new TextRun({ text: apoderado, size: 20, font: 'Arial', bold: true })]
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: 'Apoderado/a fiscal', size: 18, font: 'Arial', color: '666666' })]
-              })
-            ]
-          }),
-          new TableCell({
-            borders: sinBordes,
-            width: { size: CONTENIDO - cf, type: WidthType.DXA },
-            margins: { top: 600, bottom: 100, left: 200, right: 200 },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                border: { top: { style: BorderStyle.SINGLE, size: 8, color: '4A5568', space: 60 } },
-                children: [new TextRun({ text: nombre !== '_______________' ? nombre : ' ', size: 20, font: 'Arial', bold: true })]
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [new TextRun({ text: `${caracter} \u2014 ${tipoId} ${numeroId}`, size: 18, font: 'Arial', color: '666666' })]
-              })
-            ]
-          }),
+          celdaFirma(cf, apoderado, 'Apoderado/a fiscal'),
+          celdaFirma(CONTENIDO - cf, nombreFirma, pieDemandado),
         ]
       })
     ]
@@ -205,23 +208,26 @@ function descargarAcuerdoWord() {
 
   const children = [
     p('FISCO DE LA PROVINCIA DE BUENOS AIRES', { bold: true, center: true, size: 26, antes: 0, despues: 40 }),
-    p('Fuero Comercial de la Naci\u00f3n', { center: true, size: 20, color: '555577', despues: 200 }),
+    p('Fuero Comercial de la Naci\u00f3n',     { center: true, size: 20, color: '555577', despues: 200 }),
     separador(),
-    p('ACUERDO DE PAGO', { bold: true, center: true, size: 28, antes: 240, despues: 60 }),
-    p(`Buenos Aires, ${fecha}`, { center: true, size: 20, color: '666666', despues: 300 }),
+    p('ACUERDO DE PAGO',  { bold: true, center: true, size: 28, antes: 240, despues: 60 }),
+    p('Buenos Aires, ' + fecha, { center: true, size: 20, color: '666666', despues: 300 }),
     p('Datos del acuerdo', { bold: true, size: 22, antes: 200, despues: 120 }),
     tablaDatos,
-    ...(tablaTitulos ? [
-      p('T\u00edtulos ejecutivos', { bold: true, size: 22, antes: 280, despues: 120 }),
-      tablaTitulos,
-    ] : []),
-    ...(parrafosAcuerdo.length > 0 ? [
-      p('Texto del acuerdo', { bold: true, size: 22, antes: 280, despues: 120 }),
-      ...parrafosAcuerdo,
-    ] : []),
-    p('', { antes: 400 }),
-    tablafirmas,
   ];
+
+  if (tablaTitulos) {
+    children.push(p('T\u00edtulos ejecutivos', { bold: true, size: 22, antes: 280, despues: 120 }));
+    children.push(tablaTitulos);
+  }
+
+  if (parrafosAcuerdo.length > 0) {
+    children.push(p('Texto del acuerdo', { bold: true, size: 22, antes: 280, despues: 120 }));
+    parrafosAcuerdo.forEach(function(par) { children.push(par); });
+  }
+
+  children.push(p('', { antes: 400, despues: 0 }));
+  children.push(tablafirmas);
 
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },
@@ -232,19 +238,22 @@ function descargarAcuerdoWord() {
           margin: { top: ML, right: ML, bottom: ML, left: ML }
         }
       },
-      children
+      children: children
     }]
   });
 
   // ── Generar y descargar ──────────────────────────────────
 
-  Packer.toBlob(doc).then(blob => {
+  Packer.toBlob(doc).then(function(blob) {
     const nombreLimpio = nombre !== '_______________'
-      ? nombre.replace(/[^a-zA-Z\u00e0-\u00fc\s]/g, '').trim().replace(/\s+/g, '_')
+      ? nombre.replace(/[^a-zA-Z\u00c0-\u024f\s]/g, '').trim().replace(/\s+/g, '_')
       : 'contribuyente';
     const expLimpio = expediente !== '_______________'
       ? expediente.replace(/\//g, '-')
       : 'sin_expediente';
-    saveAs(blob, `Acuerdo_${nombreLimpio}_${expLimpio}.docx`);
+    saveAs(blob, 'Acuerdo_' + nombreLimpio + '_' + expLimpio + '.docx');
+  }).catch(function(err) {
+    console.error('Error al generar el Word:', err);
+    alert('Error al generar el archivo. Ver consola para detalles.');
   });
 }
