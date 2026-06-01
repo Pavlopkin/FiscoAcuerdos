@@ -20,7 +20,6 @@
       <h1>Liquidaciones y Acuerdos</h1>
       <p>Fisco de la Provincia de Buenos Aires</p>
     </div>
-
   </div>
 
   <!-- ══ Pestañas ════════════════════════════════════════════ -->
@@ -108,7 +107,6 @@
         <div class="card-title">Gastos y servicios registrales</div>
         <div class="field-grid">
 
-          <!-- Gastos: se ocultan si el mínimo es B -->
           <div class="field" id="gastos-wrap">
             <label>Gastos de juicio</label>
             <div class="radio-group" id="rg-gastos">
@@ -121,7 +119,6 @@
             </div>
           </div>
 
-          <!-- Servicios registrales -->
           <div class="field">
             <label>Servicios registrales</label>
             <div class="radio-group" id="rg-servicios">
@@ -179,6 +176,9 @@
 
 
 
+  <!-- ════════════════════════════════════════════════════════
+       TAB 2 — ACUERDO
+       ════════════════════════════════════════════════════════ -->
   <div id="tab-acuerdo" class="tab-panel">
 
     <div id="form-acuerdo">
@@ -329,14 +329,26 @@
   <script>
     function imprimirPDF(elementId) {
       const el = document.getElementById(elementId);
+
+      // Ocultar elementos que no deben aparecer en el PDF
+      const actionBar = el.querySelector('.action-bar');
+      const encabezado = el.querySelector('.resultado-card > div:first-child');
+      if (actionBar) actionBar.style.display = 'none';
+      if (encabezado) encabezado.style.borderBottom = 'none';
+
       const opciones = {
-        margin:       [15, 20, 15, 20],
-        filename:     'acuerdo-fisco.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin:      [15, 20, 15, 20],
+        filename:    'acuerdo-fisco.pdf',
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
-      html2pdf().set(opciones).from(el).save();
+
+      html2pdf().set(opciones).from(el).save().then(() => {
+        // Restaurar después de generar
+        if (actionBar) actionBar.style.display = '';
+        if (encabezado) encabezado.style.borderBottom = '';
+      });
     }
   </script>
 
