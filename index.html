@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500&display=swap" rel="stylesheet">
   <link href="./css/style.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -175,7 +174,6 @@
   </div><!-- /tab-liquidacion -->
 
 
-
   <!-- ════════════════════════════════════════════════════════
        TAB 2 — ACUERDO
        ════════════════════════════════════════════════════════ -->
@@ -321,37 +319,32 @@
 
 </div><!-- /app-wrapper -->
 
-  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+  <!-- Librerías: JSZip + FileSaver para generar Word; html2pdf para imprimir -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="./js/liquidacion.js"></script>
   <script src="./js/descargar-acuerdo-word.js"></script>
 
   <script>
     function imprimirPDF(elementId) {
-      const el = document.getElementById(elementId);
+      var el = document.getElementById(elementId);
+      var actionBar     = el.querySelector('.action-bar');
+      var resultadoCard = el.querySelector('.resultado-card');
+      var encabezado    = el.querySelector('.resultado-card > div:first-child');
 
-      // Buscamos los elementos internos del área de resultado
-      const actionBar = el.querySelector('.action-bar');
-      const resultadoCard = el.querySelector('.resultado-card');
-      const encabezado = el.querySelector('.resultado-card > div:first-child');
-
-      // Ocultar la barra de botones para que no salga en el PDF
-      if (actionBar) actionBar.style.display = 'none';
-      if (encabezado) encabezado.style.borderBottom = 'none';
-
-      // MODIFICACIÓN: Quitamos los estilos de "tarjeta" temporalmente antes de capturar el PDF
+      if (actionBar)     actionBar.style.display    = 'none';
+      if (encabezado)    encabezado.style.borderBottom = 'none';
       if (resultadoCard) {
-        resultadoCard.style.boxShadow = 'none';
-        resultadoCard.style.border = 'none';
+        resultadoCard.style.boxShadow  = 'none';
+        resultadoCard.style.border     = 'none';
         resultadoCard.style.background = 'transparent';
-        resultadoCard.style.padding = '0';
+        resultadoCard.style.padding    = '0';
       }
-      
-      // Forzamos que el fondo del área total sea blanco/transparente
       el.style.background = 'white';
-      el.style.boxShadow = 'none';
+      el.style.boxShadow  = 'none';
 
-      const opciones = {
+      var opciones = {
         margin:      [15, 20, 15, 20],
         filename:    'acuerdo-fisco.pdf',
         image:       { type: 'jpeg', quality: 0.98 },
@@ -359,19 +352,17 @@
         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      html2pdf().set(opciones).from(el).save().then(() => {
-        // RESTAURACIÓN: Devolvemos los estilos originales para la visualización en pantalla
-        if (actionBar) actionBar.style.display = '';
-        if (encabezado) encabezado.style.borderBottom = '';
-        
+      html2pdf().set(opciones).from(el).save().then(function() {
+        if (actionBar)     actionBar.style.display       = '';
+        if (encabezado)    encabezado.style.borderBottom = '';
         if (resultadoCard) {
-          resultadoCard.style.boxShadow = '';
-          resultadoCard.style.border = '';
+          resultadoCard.style.boxShadow  = '';
+          resultadoCard.style.border     = '';
           resultadoCard.style.background = '';
-          resultadoCard.style.padding = '';
+          resultadoCard.style.padding    = '';
         }
         el.style.background = '';
-        el.style.boxShadow = '';
+        el.style.boxShadow  = '';
       });
     }
   </script>
