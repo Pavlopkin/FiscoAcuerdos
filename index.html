@@ -27,7 +27,6 @@
     <button class="tab-btn"        onclick="switchTab('acuerdo', this)">Acuerdo de pago</button>
   </div>
 
-
   <!-- ════════════════════════════════════════════════════════
        TAB 1 — LIQUIDACIÓN
        ════════════════════════════════════════════════════════ -->
@@ -35,7 +34,6 @@
 
     <div id="form-liquidacion">
 
-      <!-- Datos del caso -->
       <div class="card">
         <div class="card-title">Datos del caso</div>
         <div class="field-grid">
@@ -50,7 +48,6 @@
         </div>
       </div>
 
-      <!-- Monto y sobretasa -->
       <div class="card">
         <div class="card-title">Monto y tasas</div>
         <div class="field-grid">
@@ -72,7 +69,6 @@
         </div>
       </div>
 
-      <!-- Honorarios y mínimo -->
       <div class="card">
         <div class="card-title">Honorarios</div>
         <div class="field-grid">
@@ -101,11 +97,9 @@
         </div>
       </div>
 
-      <!-- Gastos y servicios registrales -->
       <div class="card">
         <div class="card-title">Gastos y servicios registrales</div>
         <div class="field-grid">
-
           <div class="field" id="gastos-wrap">
             <label>Gastos de juicio</label>
             <div class="radio-group" id="rg-gastos">
@@ -117,7 +111,6 @@
               </label>
             </div>
           </div>
-
           <div class="field">
             <label>Servicios registrales</label>
             <div class="radio-group" id="rg-servicios">
@@ -136,7 +129,6 @@
               </select>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -146,15 +138,10 @@
       </div>
     </div><!-- /form-liquidacion -->
 
-
-    <!-- ── Resultado de la liquidación ───────────────────── -->
     <div class="resultado-area" id="resultado-liq">
-
       <div class="resultado-card">
         <div class="liq-header">
-          <div>
-            <div class="liq-title" id="liq-res-titulo">Liquidación</div>
-          </div>
+          <div><div class="liq-title" id="liq-res-titulo">Liquidación</div></div>
           <div class="liq-date" id="liq-res-fecha"></div>
         </div>
         <div class="liq-grid" id="liq-items"></div>
@@ -163,12 +150,10 @@
           <span class="liq-total-val" id="liq-total-val">—</span>
         </div>
       </div>
-
       <div class="action-bar">
-        <button class="btn" onclick="imprimirPDF('resultado-liq')">Imprimir</button>
+        <button class="btn" onclick="imprimirSeccion('resultado-liq')">Imprimir</button>
         <button class="btn" onclick="ocultarResultado()">← Volver</button>
       </div>
-
     </div><!-- /resultado-liq -->
 
   </div><!-- /tab-liquidacion -->
@@ -181,7 +166,6 @@
 
     <div id="form-acuerdo">
 
-      <!-- Apoderado y juzgado -->
       <div class="card">
         <div class="card-title">Apoderado y juzgado</div>
         <div class="field-grid cols-3">
@@ -207,7 +191,6 @@
         </div>
       </div>
 
-      <!-- Datos del contribuyente -->
       <div class="card">
         <div class="card-title">Datos del contribuyente</div>
         <div class="field-grid">
@@ -257,7 +240,6 @@
         </div>
       </div>
 
-      <!-- Títulos ejecutivos -->
       <div class="card">
         <div class="card-title">Títulos ejecutivos</div>
         <div class="field">
@@ -292,17 +274,14 @@
       </div>
     </div><!-- /form-acuerdo -->
 
-
-    <!-- ── Resultado del acuerdo ──────────────────────────── -->
     <div class="resultado-area" id="resultado-acuerdo">
-
       <div class="action-bar">
-        <button class="btn" onclick="imprimirPDF('resultado-acuerdo')">Imprimir</button>
+        <button class="btn" onclick="imprimirSeccion('resultado-acuerdo')">Imprimir</button>
         <button class="btn" onclick="descargarAcuerdoWord()">⬇ Descargar Word</button>
         <button class="btn" onclick="ocultarAcuerdo()">← Volver</button>
       </div>
 
-      <div class="resultado-card">
+      <div class="resultado-card" id="acuerdo-card-imprimible">
         <div style="text-align:center; margin-bottom:1.5rem; padding-bottom:1.25rem; border-bottom:1px solid var(--color-border)">
           <div style="font-size:16px;font-weight:500">Acuerdo de Pago</div>
         </div>
@@ -312,58 +291,50 @@
           <div class="firma-box">Firma del demandado</div>
         </div>
       </div>
-
     </div><!-- /resultado-acuerdo -->
 
   </div><!-- /tab-acuerdo -->
 
 </div><!-- /app-wrapper -->
 
-  <!-- Librerías: JSZip + FileSaver para generar Word; html2pdf para imprimir -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Scripts — orden importante -->
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <script src="./js/liquidacion.js"></script>
   <script src="./js/descargar-acuerdo-word.js"></script>
 
   <script>
-    function imprimirPDF(elementId) {
+    // ── Imprimir sección como PDF usando ventana de impresión nativa ──────────
+    function imprimirSeccion(elementId) {
       var el = document.getElementById(elementId);
-      var actionBar     = el.querySelector('.action-bar');
-      var resultadoCard = el.querySelector('.resultado-card');
-      var encabezado    = el.querySelector('.resultado-card > div:first-child');
+      // Clonar solo el contenido de la card, sin botones
+      var card = el.querySelector('.resultado-card') || el;
+      var contenido = card.innerHTML;
 
-      if (actionBar)     actionBar.style.display    = 'none';
-      if (encabezado)    encabezado.style.borderBottom = 'none';
-      if (resultadoCard) {
-        resultadoCard.style.boxShadow  = 'none';
-        resultadoCard.style.border     = 'none';
-        resultadoCard.style.background = 'transparent';
-        resultadoCard.style.padding    = '0';
-      }
-      el.style.background = 'white';
-      el.style.boxShadow  = 'none';
-
-      var opciones = {
-        margin:      [15, 20, 15, 20],
-        filename:    'acuerdo-fisco.pdf',
-        image:       { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-
-      html2pdf().set(opciones).from(el).save().then(function() {
-        if (actionBar)     actionBar.style.display       = '';
-        if (encabezado)    encabezado.style.borderBottom = '';
-        if (resultadoCard) {
-          resultadoCard.style.boxShadow  = '';
-          resultadoCard.style.border     = '';
-          resultadoCard.style.background = '';
-          resultadoCard.style.padding    = '';
-        }
-        el.style.background = '';
-        el.style.boxShadow  = '';
-      });
+      var ventana = window.open('', '_blank', 'width=900,height=700');
+      ventana.document.write('<!DOCTYPE html><html lang="es"><head>' +
+        '<meta charset="UTF-8">' +
+        '<title>Imprimir</title>' +
+        '<style>' +
+          'body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a2e; margin: 20mm 20mm 20mm 20mm; }' +
+          'h2 { text-align:center; font-size:16px; margin-bottom:4px; }' +
+          '.acuerdo-body p, .acuerdo-body div { margin-bottom: 8px; line-height:1.6; }' +
+          '.liq-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; margin:12px 0; }' +
+          '.liq-row-label { color:#555; }' +
+          '.liq-row-val   { font-weight:600; text-align:right; }' +
+          '.liq-total { border-top:2px solid #333; margin-top:12px; padding-top:8px; display:flex; justify-content:space-between; font-weight:700; font-size:15px; }' +
+          '.firma-row { display:flex; gap:40px; margin-top:60px; }' +
+          '.firma-box { flex:1; border-top:1px solid #333; padding-top:8px; text-align:center; font-size:12px; color:#555; }' +
+          '.liq-header { display:flex; justify-content:space-between; margin-bottom:12px; }' +
+          '.liq-title  { font-size:15px; font-weight:600; }' +
+          '@media print { body { margin:10mm 15mm; } }' +
+        '</style>' +
+        '</head><body>' +
+        contenido +
+        '</body></html>');
+      ventana.document.close();
+      ventana.focus();
+      setTimeout(function() { ventana.print(); ventana.close(); }, 600);
     }
   </script>
 
