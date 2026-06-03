@@ -15,16 +15,23 @@ function descargarAcuerdoWord() {
   if (!elTexto) { alert('No hay acuerdo generado.'); return; }
 
   // Extraer párrafos del HTML generado por generarAcuerdo()
-  // El contenido tiene <p> con texto, algunos con <strong> (negrita)
+  // Se buscan los <p> dentro del div contenedor para respetar la separación de cláusulas
   var parrafos = [];
-  var nodos = elTexto.childNodes;
-  for (var i = 0; i < nodos.length; i++) {
-    var nodo = nodos[i];
-    if (nodo.nodeType === Node.ELEMENT_NODE) {
-      // Cada <p> o <div> es un párrafo
-      parrafos.push({ html: nodo.innerHTML, tag: nodo.tagName });
-    } else if (nodo.nodeType === Node.TEXT_NODE && nodo.textContent.trim()) {
-      parrafos.push({ html: nodo.textContent, tag: 'P' });
+  var pTags = elTexto.querySelectorAll('p');
+  if (pTags.length > 0) {
+    pTags.forEach(function(p) {
+      parrafos.push({ html: p.innerHTML, tag: 'P' });
+    });
+  } else {
+    // Fallback: iterar childNodes directos
+    var nodos = elTexto.childNodes;
+    for (var i = 0; i < nodos.length; i++) {
+      var nodo = nodos[i];
+      if (nodo.nodeType === Node.ELEMENT_NODE) {
+        parrafos.push({ html: nodo.innerHTML, tag: nodo.tagName });
+      } else if (nodo.nodeType === Node.TEXT_NODE && nodo.textContent.trim()) {
+        parrafos.push({ html: nodo.textContent, tag: 'P' });
+      }
     }
   }
 
@@ -45,9 +52,8 @@ function descargarAcuerdoWord() {
   }
 
   // Convierte el innerHTML de un párrafo en runs de Word
-  // Soporta <strong>, <b>, <em>, <i>, texto plano
+  // Soporta <strong>, <b>, <em>, <i>, <br>, texto plano
   function htmlARuns(html) {
-    // Parsear el HTML en un DOM temporal
     var tmp = document.createElement('div');
     tmp.innerHTML = html;
 
@@ -63,6 +69,11 @@ function descargarAcuerdoWord() {
         runs += '<w:t xml:space="preserve">' + esc(txt) + '</w:t></w:r>';
       } else if (nodo.nodeType === Node.ELEMENT_NODE) {
         var tag = nodo.tagName.toUpperCase();
+        if (tag === 'BR') {
+          // Salto de línea dentro del párrafo
+          runs += '<w:r><w:br/></w:r>';
+          return;
+        }
         var esBold   = bold   || tag === 'STRONG' || tag === 'B';
         var esItalic = italic || tag === 'EM'     || tag === 'I';
         for (var j = 0; j < nodo.childNodes.length; j++) {
