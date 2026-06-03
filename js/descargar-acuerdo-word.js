@@ -65,7 +65,7 @@ function descargarAcuerdoWord() {
         runs += '<w:r><w:rPr>';
         if (bold)   runs += '<w:b/><w:bCs/>';
         if (italic) runs += '<w:i/><w:iCs/>';
-        runs += '<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>';
+        runs += '<w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
         runs += '<w:t xml:space="preserve">' + esc(txt) + '</w:t></w:r>';
       } else if (nodo.nodeType === Node.ELEMENT_NODE) {
         var tag = nodo.tagName.toUpperCase();
@@ -94,11 +94,11 @@ function descargarAcuerdoWord() {
     var spa = opts.spa != null ? opts.spa : 160;
     var jc  = opts.jc  || 'both'; // justificado
     var runs = htmlARuns(html);
-    if (!runs) runs = '<w:r><w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t></w:t></w:r>';
+    if (!runs) runs = '<w:r><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t></w:t></w:r>';
     return '<w:p>' +
       '<w:pPr>' +
         '<w:jc w:val="' + jc + '"/>' +
-        '<w:spacing w:before="' + spb + '" w:after="' + spa + '" w:line="276" w:lineRule="auto"/>' +
+        '<w:spacing w:before="' + spb + '" w:after="' + spa + '" w:line="360" w:lineRule="auto"/>' +
       '</w:pPr>' +
       runs +
     '</w:p>';
@@ -110,12 +110,12 @@ function descargarAcuerdoWord() {
     var spb  = opts.spb  != null ? opts.spb  : 0;
     var spa  = opts.spa  != null ? opts.spa  : 160;
     var jc   = opts.jc   || 'both';
-    var sz   = opts.sz   || 22;
+    var sz   = opts.sz   || 20;
     var bold = opts.bold || false;
     return '<w:p>' +
       '<w:pPr>' +
         '<w:jc w:val="' + jc + '"/>' +
-        '<w:spacing w:before="' + spb + '" w:after="' + spa + '" w:line="276" w:lineRule="auto"/>' +
+        '<w:spacing w:before="' + spb + '" w:after="' + spa + '" w:line="360" w:lineRule="auto"/>' +
       '</w:pPr>' +
       '<w:r><w:rPr>' +
         (bold ? '<w:b/><w:bCs/>' : '') +
@@ -152,11 +152,11 @@ function descargarAcuerdoWord() {
 
   // ── Construir el documento ───────────────────────────────
 
-  var CONT = 9638; // A4 con márgenes ~2.5cm
+  var CONT = 10204; // A4 con márgenes ~1.5cm
   var kids = [];
 
   // Título centrado
-  kids.push(parSimple('Acuerdo de Pago', { jc: 'center', sz: 26, bold: true, spb: 0, spa: 320 }));
+  kids.push(parSimple('ACUERDO DE PAGO', { jc: 'center', sz: 24, bold: true, spb: 0, spa: 0 }));
 
   // Párrafos del acuerdo (texto generado por la app)
   for (var i = 0; i < parrafos.length; i++) {
@@ -214,7 +214,7 @@ function descargarAcuerdoWord() {
     kids.join('') +
     '<w:sectPr>' +
       '<w:pgSz w:w="11906" w:h="16838"/>' +
-      '<w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="0"/>' +
+      '<w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="709" w:footer="709" w:gutter="0"/>' +
     '</w:sectPr>' +
     '</w:body></w:document>';
 
@@ -230,7 +230,7 @@ function descargarAcuerdoWord() {
     ' xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">' +
     '<w:docDefaults><w:rPrDefault><w:rPr>' +
       '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>' +
-      '<w:sz w:val="22"/><w:szCs w:val="22"/>' +
+      '<w:sz w:val="20"/><w:szCs w:val="20"/>' +
       '<w:lang w:val="es-AR"/>' +
     '</w:rPr></w:rPrDefault></w:docDefaults>' +
     '</w:styles>';
