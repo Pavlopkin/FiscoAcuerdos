@@ -1,273 +1,386 @@
-// Genera el acuerdo en .docx con el mismo formato que el PDF impreso
-// Requiere en el HTML (antes de </body>):
-//   <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
-//   <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+/* ============================================================
+   liquidacion.js — Generador de Liquidaciones y Acuerdos
+   Fuero Comercial de la Nación
+   ============================================================
 
-function descargarAcuerdoWord() {
+   REGLAS DE NEGOCIO
+   ─────────────────
+   Tasa de justicia:  2,2 % del monto reclamado
+   Sobre tasa:        5 % o 10 % de la tasa de justicia
+   Honorarios %:      6, 9, 12, 15, 18 % (con mínimo aplicable)
+   Honorario mínimo A: $ 149.250  →  gastos según opción del formulario
+   Honorario mínimo B: $ 101.994  →  gastos SIEMPRE fijos en $ 33.998
+   Gastos:            $ 24.875  |  $ 49.750  |  $ 33.998 (automático)
+   Servicios reg.:    opcional, montos $ 84.000 / 168.000 / 252.000
+   Aportes s/ hono:   10 % sobre honorarios
+   ============================================================ */
 
-  if (typeof JSZip === 'undefined') {
-    alert('Error: JSZip no está cargado.');
-    return;
-  }
+'use strict';
 
-  // ── Leer el texto exacto que muestra la pantalla ─────────
-  var elTexto = document.getElementById('acuerdo-texto');
-  if (!elTexto) { alert('No hay acuerdo generado.'); return; }
+// ── Constantes ───────────────────────────────────────────────
+const MESES = [
+  'enero','febrero','marzo','abril','mayo','junio',
+  'julio','agosto','septiembre','octubre','noviembre','diciembre'
+];
 
-  // Extraer párrafos del HTML generado por generarAcuerdo()
-  // Se buscan los <p> dentro del div contenedor para respetar la separación de cláusulas
-  var parrafos = [];
-  var pTags = elTexto.querySelectorAll('p');
-  if (pTags.length > 0) {
-    pTags.forEach(function(p) {
-      parrafos.push({ html: p.innerHTML, tag: 'P' });
-    });
-  } else {
-    // Fallback: iterar childNodes directos
-    var nodos = elTexto.childNodes;
-    for (var i = 0; i < nodos.length; i++) {
-      var nodo = nodos[i];
-      if (nodo.nodeType === Node.ELEMENT_NODE) {
-        parrafos.push({ html: nodo.innerHTML, tag: nodo.tagName });
-      } else if (nodo.nodeType === Node.TEXT_NODE && nodo.textContent.trim()) {
-        parrafos.push({ html: nodo.textContent, tag: 'P' });
-      }
-    }
-  }
+const APODERADOS = {
+  natalia:  'Natalia',
+  mauricio: 'Mauricio',
+  maximina: 'Maximina'
+};
 
-  // Datos para nombre de archivo
-  var nombre     = (document.getElementById('ac-contribuyente') || {}).value || '';
-  var expediente = (document.getElementById('ac-expediente')    || {}).value || '';
-  nombre     = nombre.trim()     || 'contribuyente';
-  expediente = expediente.trim() || 'sin_expediente';
+const GASTOS_MINIMO_B = 33998;
+const MINIMO_A        = 149250;
+const MINIMO_B        = 101994;
 
-  // ── Helpers XML ──────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────
 
-  function esc(s) {
-    return String(s || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  // Convierte el innerHTML de un párrafo en runs de Word
-  // Soporta <strong>, <b>, <em>, <i>, <br>, texto plano
-  function htmlARuns(html) {
-    var tmp = document.createElement('div');
-    tmp.innerHTML = html;
-
-    var runs = '';
-    function procesarNodo(nodo, bold, italic) {
-      if (nodo.nodeType === Node.TEXT_NODE) {
-        var txt = nodo.textContent;
-        if (!txt) return;
-        runs += '<w:r><w:rPr>';
-        if (bold)   runs += '<w:b/><w:bCs/>';
-        if (italic) runs += '<w:i/><w:iCs/>';
-        runs += '<w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>';
-        runs += '<w:t xml:space="preserve">' + esc(txt) + '</w:t></w:r>';
-      } else if (nodo.nodeType === Node.ELEMENT_NODE) {
-        var tag = nodo.tagName.toUpperCase();
-        if (tag === 'BR') {
-          // Salto de línea dentro del párrafo
-          runs += '<w:r><w:br/></w:r>';
-          return;
-        }
-        var esBold   = bold   || tag === 'STRONG' || tag === 'B';
-        var esItalic = italic || tag === 'EM'     || tag === 'I';
-        for (var j = 0; j < nodo.childNodes.length; j++) {
-          procesarNodo(nodo.childNodes[j], esBold, esItalic);
-        }
-      }
-    }
-    for (var k = 0; k < tmp.childNodes.length; k++) {
-      procesarNodo(tmp.childNodes[k], false, false);
-    }
-    return runs;
-  }
-
-  // Párrafo Word con runs mixtos (bold/normal dentro del mismo párrafo)
-  function parMixto(html, opts) {
-    opts = opts || {};
-    var spb = opts.spb != null ? opts.spb : 0;
-    var spa = opts.spa != null ? opts.spa : 160;
-    var jc  = opts.jc  || 'both'; // justificado
-    var runs = htmlARuns(html);
-    if (!runs) runs = '<w:r><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t></w:t></w:r>';
-    return '<w:p>' +
-      '<w:pPr>' +
-        '<w:jc w:val="' + jc + '"/>' +
-        '<w:spacing w:before="' + spb + '" w:after="' + spa + '" w:line="360" w:lineRule="auto"/>' +
-      '</w:pPr>' +
-      runs +
-    '</w:p>';
-  }
-
-  // Párrafo simple (sin HTML interno)
-  function parSimple(texto, opts) {
-    opts = opts || {};
-    var spb  = opts.spb  != null ? opts.spb  : 0;
-    var spa  = opts.spa  != null ? opts.spa  : 160;
-    var jc   = opts.jc   || 'both';
-    var sz   = opts.sz   || 20;
-    var bold = opts.bold || false;
-    return '<w:p>' +
-      '<w:pPr>' +
-        '<w:jc w:val="' + jc + '"/>' +
-        '<w:spacing w:before="' + spb + '" w:after="' + spa + '" w:line="360" w:lineRule="auto"/>' +
-      '</w:pPr>' +
-      '<w:r><w:rPr>' +
-        (bold ? '<w:b/><w:bCs/>' : '') +
-        '<w:sz w:val="' + sz + '"/><w:szCs w:val="' + sz + '"/>' +
-      '</w:rPr><w:t xml:space="preserve">' + esc(texto) + '</w:t></w:r>' +
-    '</w:p>';
-  }
-
-  // Celda de firma
-  function celdaFirma(w, texto) {
-    return '<w:tc>' +
-      '<w:tcPr>' +
-        '<w:tcW w:w="' + w + '" w:type="dxa"/>' +
-        '<w:tcBorders>' +
-          '<w:top    w:val="single" w:sz="8"  w:space="0" w:color="333333"/>' +
-          '<w:left   w:val="none"   w:sz="0"  w:space="0" w:color="auto"/>' +
-          '<w:bottom w:val="none"   w:sz="0"  w:space="0" w:color="auto"/>' +
-          '<w:right  w:val="none"   w:sz="0"  w:space="0" w:color="auto"/>' +
-        '</w:tcBorders>' +
-        '<w:shd w:val="clear" w:color="auto" w:fill="FFFFFF"/>' +
-        '<w:tcMar>' +
-          '<w:top    w:w="120" w:type="dxa"/>' +
-          '<w:left   w:w="0"   w:type="dxa"/>' +
-          '<w:bottom w:w="0"   w:type="dxa"/>' +
-          '<w:right  w:w="0"   w:type="dxa"/>' +
-        '</w:tcMar>' +
-      '</w:tcPr>' +
-      '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0"/></w:pPr>' +
-        '<w:r><w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/><w:color w:val="444444"/></w:rPr>' +
-        '<w:t xml:space="preserve">' + esc(texto) + '</w:t></w:r>' +
-      '</w:p>' +
-    '</w:tc>';
-  }
-
-  // ── Construir el documento ───────────────────────────────
-
-  var CONT = 10204; // A4 con márgenes ~1.5cm
-  var kids = [];
-
-  // Título centrado
-  kids.push(parSimple('ACUERDO DE PAGO', { jc: 'center', sz: 24, bold: true, spb: 0, spa: 0 }));
-
-  // Párrafos del acuerdo (texto generado por la app)
-  for (var i = 0; i < parrafos.length; i++) {
-    kids.push(parMixto(parrafos[i].html, { spb: 0, spa: 160, jc: 'both' }));
-  }
-
-  // Espacio antes de firmas
-  kids.push(parSimple('', { spb: 0, spa: 0 }));
-  kids.push(parSimple('', { spb: 0, spa: 0 }));
-
-  // Tabla de firmas (2 columnas sin bordes laterales, borde top como línea)
-  var cf = Math.floor(CONT / 2);
-  kids.push(
-    '<w:tbl>' +
-      '<w:tblPr>' +
-        '<w:tblW w:w="' + CONT + '" w:type="dxa"/>' +
-        '<w:tblBorders>' +
-          '<w:top    w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
-          '<w:left   w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
-          '<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
-          '<w:right  w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
-          '<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
-          '<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>' +
-        '</w:tblBorders>' +
-        '<w:tblCellMar>' +
-          '<w:left  w:w="0" w:type="dxa"/>' +
-          '<w:right w:w="0" w:type="dxa"/>' +
-        '</w:tblCellMar>' +
-      '</w:tblPr>' +
-      '<w:tblGrid><w:gridCol w:w="' + cf + '"/><w:gridCol w:w="' + (CONT - cf) + '"/></w:tblGrid>' +
-      '<w:tr>' +
-        celdaFirma(cf,          'Firma del/la apoderado/a fiscal') +
-        celdaFirma(CONT - cf,   'Firma del demandado') +
-      '</w:tr>' +
-    '</w:tbl>'
-  );
-
-  // ── Ensamblar document.xml ───────────────────────────────
-
-  var documentXml =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"' +
-    ' xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"' +
-    ' xmlns:o="urn:schemas-microsoft-com:office:office"' +
-    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"' +
-    ' xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"' +
-    ' xmlns:v="urn:schemas-microsoft-com:vml"' +
-    ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"' +
-    ' xmlns:w10="urn:schemas-microsoft-com:office:word"' +
-    ' xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"' +
-    ' xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"' +
-    ' xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml"' +
-    ' mc:Ignorable="w14">' +
-    '<w:body>' +
-    kids.join('') +
-    '<w:sectPr>' +
-      '<w:pgSz w:w="11906" w:h="16838"/>' +
-      '<w:pgMar w:top="851" w:right="851" w:bottom="851" w:left="851" w:header="709" w:footer="709" w:gutter="0"/>' +
-    '</w:sectPr>' +
-    '</w:body></w:document>';
-
-  var relsXml =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
-    '</Relationships>';
-
-  var stylesXml =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"' +
-    ' xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">' +
-    '<w:docDefaults><w:rPrDefault><w:rPr>' +
-      '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>' +
-      '<w:sz w:val="20"/><w:szCs w:val="20"/>' +
-      '<w:lang w:val="es-AR"/>' +
-    '</w:rPr></w:rPrDefault></w:docDefaults>' +
-    '</w:styles>';
-
-  var dotRelsXml =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
-    '</Relationships>';
-
-  var contentTypesXml =
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-    '<Default Extension="xml"  ContentType="application/xml"/>' +
-    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
-    '<Override PartName="/word/styles.xml"   ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
-    '</Types>';
-
-  // ── Empaquetar y descargar ───────────────────────────────
-
-  var zip = new JSZip();
-  zip.file('[Content_Types].xml', contentTypesXml);
-  zip.file('_rels/.rels',         dotRelsXml);
-  zip.file('word/document.xml',   documentXml);
-  zip.file('word/styles.xml',     stylesXml);
-  zip.file('word/_rels/document.xml.rels', relsXml);
-
-  zip.generateAsync({
-    type: 'blob',
-    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  }).then(function(blob) {
-    var nombreLimpio = nombre.replace(/[^a-zA-Z\u00c0-\u024f\s]/g, '').trim().replace(/\s+/g, '_') || 'contribuyente';
-    var expLimpio    = expediente.replace(/\//g, '-') || 'sin_expediente';
-    saveAs(blob, 'Acuerdo_' + nombreLimpio + '_' + expLimpio + '.docx');
-  }).catch(function(err) {
-    console.error('Error al generar Word:', err);
-    alert('No se pudo generar el archivo. Ver consola.');
+function formatPeso(n) {
+  return '$ ' + n.toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
 }
+
+function getRadioVal(name) {
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? el.value : null;
+}
+
+function selectRadio(groupId, el, val) {
+  document.querySelectorAll('#' + groupId + ' .radio-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  const input = el.querySelector('input[type="radio"]');
+  if (input) {
+    input.checked = true;
+    if (input.name === 'minimoHono') onMinimoChange();
+    if (input.name === 'servicios') onServiciosChange();
+  }
+}
+window.selectRadio = selectRadio;
+
+// Convierte número a palabras en español (pesos)
+function numeroALetras(n) {
+  const partes = n.toFixed(2).split('.');
+  const entero = parseInt(partes[0]);
+  const cents  = parseInt(partes[1]);
+
+  const u = ['','un','dos','tres','cuatro','cinco','seis','siete','ocho','nueve',
+             'diez','once','doce','trece','catorce','quince','diecisiete',
+             'diecisiete','dieciocho','diecinueve','veinte'];
+  const d = ['','','veinti','treinta','cuarenta','cincuenta',
+             'sesenta','setenta','ochenta','noventa'];
+  const c = ['','cien','doscientos','trescientos','cuatrocientos','quinientos',
+             'seiscientos','setecientos','ochocientos','novecientos'];
+
+  function conv(num) {
+    if (num === 0) return '';
+    if (num <= 20) return u[num];
+    if (num < 100) {
+      const t = Math.floor(num / 10), r = num % 10;
+      return r === 0 ? d[t] : (t === 2 ? 'veinti' + u[r] : d[t] + ' y ' + u[r]);
+    }
+    if (num < 1000) {
+      const t = Math.floor(num / 100), r = num % 100;
+      return r === 0 ? c[t] : (t === 1 ? 'ciento ' + conv(r) : c[t] + ' ' + conv(r));
+    }
+    if (num < 1000000) {
+      const t = Math.floor(num / 1000), r = num % 1000;
+      const m = (t === 1) ? 'mil' : conv(t) + ' mil';
+      return r === 0 ? m : m + ' ' + conv(r);
+    }
+    const t = Math.floor(num / 1000000), r = num % 1000000;
+    const m = (t === 1) ? 'un millón' : conv(t) + ' millones';
+    return r === 0 ? m : m + ' ' + conv(r);
+  }
+
+  const enteroLetras = (conv(entero) || 'cero').toUpperCase();
+  const centsLetras  = cents > 0 ? ' CON ' + (conv(cents) || 'cero').toUpperCase() + ' CENTAVOS' : '';
+  return 'PESOS ' + enteroLetras + centsLetras;
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+window.switchTab = switchTab;
+
+// ── Lógica de visibilidad dinámica ───────────────────────────
+
+function onMinimoChange() {
+  const minimo = getRadioVal('minimoHono');
+  const gastosWrap = document.getElementById('gastos-wrap');
+  const gastosHint = document.getElementById('gastos-hint');
+
+  if (minimo === 'B') {
+    if (gastosWrap) gastosWrap.style.display = 'none';
+    if (gastosHint) {
+      gastosHint.textContent = 'Gastos fijos: ' + formatPeso(GASTOS_MINIMO_B);
+      gastosHint.style.display = 'block';
+    }
+  } else {
+    if (gastosWrap) gastosWrap.style.display = 'block';
+    if (gastosHint) gastosHint.style.display = 'none';
+  }
+}
+
+function onServiciosChange() {
+  const v = getRadioVal('servicios');
+  const wrap = document.getElementById('selector-serv-wrap');
+  if (wrap) wrap.style.display = (v === 'NO') ? 'none' : 'block';
+}
+
+function showTitulos(n) {
+  const cont = document.getElementById('titulos-inputs');
+  if (!cont) return;
+  cont.innerHTML = '';
+  for (let i = 1; i <= n; i++) {
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = 'titulo-' + i;
+    inp.className = 'titulo-input';
+    inp.placeholder = 'Título ejecutivo N° ' + i;
+    inp.style.cssText = 'font-size:13px;padding:8px 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-accent-bg);color:var(--color-text);outline:none;width:100%';
+    cont.appendChild(inp);
+  }
+}
+window.showTitulos = showTitulos;
+
+// ── CÁLCULO DE LIQUIDACIÓN ───────────────────────────────────
+
+function calcularLiq() {
+  const monto         = parseFloat(document.getElementById('liq-monto').value) || 0;
+  const contribuyente = document.getElementById('liq-contribuyente').value || '(sin nombre)';
+  const juicio        = document.getElementById('liq-juicio').value || '—';
+  const sobretasaPct  = parseFloat(getRadioVal('sobretasa')) || 5;
+  const pct           = parseFloat(document.getElementById('liq-honorarios').value) || 6;
+  const minimoHono    = getRadioVal('minimoHono');   // 'A' | 'B'
+  const servicios     = getRadioVal('servicios');    // 'SI' | 'NO'
+  const servMonto     = (servicios === 'SI')
+    ? parseFloat(document.getElementById('liq-selectorServicios').value) || 0
+    : 0;
+
+  // Gastos según mínimo elegido
+  let gastos;
+  if (minimoHono === 'B') {
+    gastos = GASTOS_MINIMO_B;
+  } else {
+    gastos = parseFloat(getRadioVal('gastos')) || 0;
+  }
+
+  // Honorarios: max(calculado, mínimo)
+  const minimoValor   = (minimoHono === 'B') ? MINIMO_B : MINIMO_A;
+  const honoCalculado = monto * (pct / 100);
+  const honorarios    = Math.max(honoCalculado, minimoValor);
+
+  // Rubros — fórmulas
+  const tasa      = monto * 0.022;
+  const sobretasa = tasa * (sobretasaPct / 100);
+  const aportes   = honorarios * 0.10;
+  const honofisco = honorarios * 0.40;
+  const honoapod  = honorarios * 0.60;
+
+  // Costas e Impuestos
+  const totalCostas  = tasa + sobretasa + gastos + servMonto;
+  const subtotalHono = honorarios + aportes;
+  const totalGeneral = totalCostas + subtotalHono;
+
+  // Fecha
+  const now = new Date();
+  const fechaTxt = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+
+  // Encabezado
+  document.getElementById('liq-res-fecha').textContent = 'Actualizado al ' + fechaTxt;
+  document.getElementById('liq-res-titulo').textContent =
+    contribuyente + (juicio !== '—' ? ' — Juicio ' + juicio : '');
+
+  // Items en el mismo orden que el Excel
+  const items = [
+    ['Capital actualizado',                                    formatPeso(monto)],
+    ['Tasa de justicia (2,2 %)',                               formatPeso(tasa)],
+    [`Sobre tasa (${sobretasaPct} %)`,                         formatPeso(sobretasa)],
+    ['Gastos de juicio',                                       gastos > 0 ? formatPeso(gastos) : '—'],
+    ['Servicios registrales',                                  servMonto > 0 ? formatPeso(servMonto) : 'No aplica'],
+    ['Total costas',                                           formatPeso(totalCostas)],
+    [`Honorarios (${pct} % — mín. ${formatPeso(minimoValor)})`, formatPeso(honorarios)],
+    ['Aportes s/ honorarios (10 %)',                           formatPeso(aportes)],
+    ['Subtotal a cargo del deudor',                            formatPeso(subtotalHono)],
+  ];
+
+  const grid = document.getElementById('liq-items');
+  grid.innerHTML = '';
+  items.forEach(([label, val]) => {
+    grid.innerHTML +=
+      `<div class="liq-item">
+         <span class="liq-item-label">${label}</span>
+         <span class="liq-item-val">${val}</span>
+       </div>`;
+  });
+
+  document.getElementById('liq-total-val').textContent = formatPeso(totalGeneral);
+
+  // Guardar para uso en el acuerdo
+  window._liqData = {
+    monto, tasa, sobretasa, sobretasaPct,
+    honorarios, honofisco, honoapod,
+    aportes, gastos, servMonto,
+    totalCostas, subtotalHono, totalGeneral,
+    contribuyente, juicio, minimoValor, pct
+  };
+
+  // Mostrar resultado
+  document.getElementById('form-liquidacion').style.display = 'none';
+  document.getElementById('resultado-liq').classList.add('visible');
+}
+window.calcularLiq = calcularLiq;
+
+function limpiarLiq() {
+  document.getElementById('liq-contribuyente').value = '';
+  document.getElementById('liq-juicio').value = '';
+  document.getElementById('liq-monto').value = '';
+  document.querySelectorAll(
+    '#rg-sobretasa .radio-opt, #rg-gastos .radio-opt, #rg-servicios .radio-opt, #rg-minimo .radio-opt'
+  ).forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll(
+    'input[name="sobretasa"], input[name="gastos"], input[name="servicios"], input[name="minimoHono"]'
+  ).forEach(i => i.checked = false);
+  onMinimoChange();
+  onServiciosChange();
+}
+window.limpiarLiq = limpiarLiq;
+
+function ocultarResultado() {
+  document.getElementById('resultado-liq').classList.remove('visible');
+  document.getElementById('form-liquidacion').style.display = 'block';
+}
+window.ocultarResultado = ocultarResultado;
+
+// ── GENERACIÓN DEL ACUERDO ───────────────────────────────────
+
+function generarAcuerdo() {
+  const now  = new Date();
+  const dia  = now.getDate();
+  const mes  = MESES[now.getMonth()];
+  const anio = now.getFullYear();
+
+  // Datos del Firmante
+  const contrib    = document.getElementById('ac-contribuyente').value || 'LA DEMANDADA';
+  const tipoId     = (getRadioVal('identificacion') || 'DNI').toUpperCase();
+  const dni        = document.getElementById('ac-dni').value || '—';
+  const dom        = document.getElementById('ac-domicilio').value || '—';
+  const expediente = document.getElementById('ac-expediente').value || '—';
+  const juzgado    = document.getElementById('ac-juzgado').value || '2';
+  const apodVal    = document.getElementById('ac-apoderado').value;
+
+  // Datos de los Autos
+  const contribLiq = document.getElementById('liq-contribuyente')?.value || contrib;
+
+  let apodNombre = APODERADOS[apodVal] || apodVal;
+  if (apodVal === 'mauricio') {
+    apodNombre = 'Dr. Mauricio Julián Luparia de la Colina';
+  } else {
+    apodNombre = 'Dr./Dra. ' + apodNombre;
+  }
+
+  // Carácter de la representación
+  const caracteres = { demandado: 'demandado', apoderado: 'apoderado', representante: 'representante legal' };
+  const caracterVal = getRadioVal('caracter') || 'demandado';
+  const caracter = caracteres[caracterVal];
+
+  // Títulos ejecutivos
+  const titInputs = document.querySelectorAll('[id^="titulo-"]');
+  const titulosVals = [...titInputs].map(i => i.value.trim()).filter(Boolean);
+  let titulosTexto;
+  if (titulosVals.length === 0) {
+    titulosTexto = 'el/los título/s ejecutivo/s correspondientes';
+  } else if (titulosVals.length === 1) {
+    titulosTexto = titulosVals[0];
+  } else {
+    titulosTexto = titulosVals.slice(0, -1).join(', ') + ' y ' + titulosVals[titulosVals.length - 1];
+  }
+
+  // Montos de la liquidación
+  const d = window._liqData || {};
+  const fmonto   = d.monto        ? formatPeso(d.monto)         : '$ ...........';
+  const fmontoL  = d.monto        ? numeroALetras(d.monto)      : '............';
+  const ftasa    = d.tasa         ? formatPeso(d.tasa)          : '$ ...........';
+  const fstasa   = d.sobretasa    ? formatPeso(d.sobretasa)     : '$ ...........';
+  const fhono    = d.honorarios   ? formatPeso(d.honorarios)    : '$ ...........';
+  const fhonoF   = d.honofisco    ? formatPeso(d.honofisco)     : '$ ...........';
+  const fhonoA   = d.honoapod     ? formatPeso(d.honoapod)      : '$ ...........';
+  const fhonoL   = d.honorarios   ? numeroALetras(d.honorarios) : '............';
+  const faporte  = d.aportes      ? formatPeso(d.aportes)       : '$ ...........';
+  const fgastos  = d.gastos       ? formatPeso(d.gastos)        : '$ ...........';
+  const fserv    = (d.servMonto && d.servMonto > 0) ? formatPeso(d.servMonto) : '$ ...........';
+  const fjuicio  = d.juicio       || document.getElementById('liq-juicio')?.value || '—';
+
+  const P = 'style="margin-top: 0; margin-bottom: 12px;"';
+
+  const html = `
+<div style="text-align: justify; width: 100%; box-sizing: border-box; line-height: 1.5; color: var(--color-text); font-size: 13px; padding: 0 10px;">
+
+  <p ${P}>En la ciudad de San Isidro a los <strong>${dia}</strong> días del mes de <strong>${mes}</strong> de <strong>${anio}</strong>, entre <strong>${contrib.toUpperCase()} (${tipoId} ${dni})</strong>, con domicilio en <strong>${dom}</strong>, en su carácter de <strong>${caracter}</strong>, por una parte, en adelante "LA DEMANDADA"; y por otra, el <strong>${apodNombre}</strong>, con domicilio constituido en calle Ituzaingo Nº 321 Depto. 52 de San Isidro, en su carácter de apoderado fiscal de la Provincia de Buenos Aires en los términos de los arts. 4 y 4 bis del decreto ley 7543/69 (t.o. y sus modificatorios), en adelante "EL APODERADO", tal como se acredita en los autos caratulados <strong>"FISCO DE LA PROVINCIA DE BUENOS AIRES c/ ${contribLiq.toUpperCase()} s/APREMIO"</strong>, expediente <strong>${expediente}</strong>, de trámite por ante el Juzgado en lo Contencioso Administrativo N° <strong>${juzgado}</strong>, del Departamento Judicial de San Isidro, con relación a la ejecución fiscal citada por la que se persigue el cobro de los períodos/adelantos individualizados en el/los título/s ejecutivo/s <strong>${titulosTexto}</strong>, juicio <strong>${fjuicio}</strong>, con el objeto de poner fin al apremio se hace constar lo siguiente:</p>
+
+  <p ${P}><strong>PRIMERA:</strong> LA DEMANDADA reconoce adeudar al Fisco la totalidad de la deuda reclamada en el apremio detallado, renunciando a toda reclamación impugnatoria administrativa o judicial de la deuda mencionada, también se notifica y consiente expresamente las medidas cautelares trabadas o a trabarse, ya sean judiciales -cuyo levantamiento queda a cargo de LA DEMANDADA cuando corresponda según el plan- o administrativas que se efectivicen sobre bienes muebles, inmuebles, financieros o de cualquier otra naturaleza. El monto que se utiliza, salvo error u omisión, para el presente acuerdo es el de <strong>${fmontoL} (${fmonto})</strong>, que surge de la página de ARBA con la salvedad contenida en los párrafos siguientes de esta primera cláusula. Se adjunta el presente convenio, y como parte integrante del mismo, una impresión conocida y consentida por LA DEMANDADA de los diferentes montos que surgen de la página Web de ARBA, que arrojan importes disímiles según opta LA DEMANDADA y que inciden directamente en el mayor o menor monto de costas que debe abonar. Es decir, conoce que su elección irrevocable es abonar la deuda en ARBA en la cantidad de CUOTAS que declara al apoderado, y que en caso de posteriormente a la suscripción del acuerdo cambiar de plan, dicho acto tiene consecuencias directas en el monto total de las costas a abonar por este convenio. Conste que se ha llegado a concluir este acuerdo por vía telefónica y/o electrónica quedando sujeto su perfeccionamiento a los pagos íntegros de todos los rubros detallados abajo y a la regularización del crédito de ARBA por parte del LA DEMANDADA. Se deja expresa constancia que en el juicio objeto del presente NO existe oposición de excepciones pendiente de tratamiento. De verificarse el ingreso a un plan con cuotas superior a las manifestadas, LA DEMANDADA deberá cancelar las diferencias que resulten de calcular nuevamente las costas. Para ello, se tomará el monto que corresponda consignado en el formulario de acogimiento expedido por ARBA. Si se le permitiere por cualquier motivo ingresar en un plan por un monto menor nada podrá reclamar LA DEMANDADA a LA ACTORA, ni al Apoderada/o Fiscal, ni a la Caja de Previsión, ni al Poder Judicial ya que lo ha hecho voluntariamente y prestando su consentimiento claramente informado. En el caso en que se disponga judicialmente, aún contra la voluntad expresada por LA DEMANDADA in este convenio, la devolución de Tasa de Justicia, Sobre Tasa, Gastos de Estudio, Aportes Previsionales u Honorarios, se exime a LA ACTORA y a su apoderada/o de cualquier gestión personal o profesional al respecto. Se deja constancia que los montos tenidos en cuenta surgen de la Web de ARBA en el día de hoy, que varían diariamente por acumulación de intereses, que si existe plan de facilidades puede haber vencido el horario para efectuar el acogimiento, que el eventual plan de facilidades tiene fecha de finalización que LA DEMANDADA manifiesta conocer, e incluso que para su tipo de deuda puede no existir plan de facilidades.-</p>
+
+  <p ${P}><strong>SEGUNDA:</strong> Las partes acuerdan fijar los honorarios del letrado apoderada/o del Fisco de la Provincia de Buenos Aires, en la suma total de <strong>${fhonoL} (${fhono})</strong> pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente. Asimismo, las partes convienen que dicho monto será cancelado por LA DEMANDADA en UN PAGO.-</p>
+
+  <p ${P}><strong>TERCERA:</strong> En consecuencia, LA DEMANDADA asume e integra, las siguientes sumas:</p>
+  <p ${P}>1) <strong>${ftasa}</strong> en concepto de Tasa de Justicia,</p>
+  <p ${P}>2) <strong>${fstasa}</strong> en concepto de Sobre Tasa de Justicia,</p>
+  <p ${P}>3) <strong>${fhono}</strong> en concepto de honorarios convenidos por la actuación profesional de la parte actora en los autos citados (de los cuales <strong>${fhonoF}</strong> en concepto de Honorarios para Fiscalía de Estado en virtud del convenio de cesión correspondiente al 40% de la totalidad de los honorarios convenidos, y <strong>${fhonoA}</strong> (60%) por la actuación del profesional de la parte actora) –pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente–</p>
+  <p ${P}>4) <strong>${faporte}</strong> en concepto de aportes previsionales a cargo de LA DEMANDADA;</p>
+  <p ${P}>5) <strong>${fserv}</strong> en concepto de Servicios Registrales;</p>
+  <p ${P}>6) <strong>${fgastos}</strong> en concepto de gastos generales.</p>
+
+  <p ${P}>Se deja constancia que el demandado asume la responsabilidad de cancelar cualquier saldo que se pueda adeudar por diferencias a su cargo. Asimismo, se aclara que los gastos causídicos pactados en el presente corresponderá a la actividad procesal desarrollada por el Apoderada/o hasta la fecha del presente, pudiendo modificarse dicho concepto en caso de incumplimiento del acuerdo.-</p>
+
+  <p ${P}><strong>CUARTA:</strong> LA DEMANDADA regularizará el importe adeudado acogiéndose al plan de pago EN CUOTAS A LAS QUE PUEDA ACCEDER VÍA WEB NO PRESENCIAL EN EL SITIO DE ARBA dentro de los cinco (5) días corridos a partir de la fecha de celebración del acuerdo, por el importe que le liquide la ARBA –con la reserva realizada en la cláusula PRIMERA-. En caso de no poder regularizar la deuda en la Web de ARBA con la ayuda que se encuentra operativa de Chat, WhatsApp, Instagram, Facebook y Twitter, deberá hacerlo presencialmente dentro de los primeros treinta (30) días luego de reanudada la atención presencial, con un máximo de 90 días a partir de la fecha. Asume igualmente la obligación de acreditar ante el apoderada/o el efectivo acogimiento dentro de los dos (2) días hábiles posteriores a su ingreso en ARBA con lo que quedará perfeccionado el presente acuerdo. Se deja constancia que ante el incumplimiento del plan de pago que se acuerde con ARBA, el Fisco queda facultado para: a) ejecutar la totalidad del crédito consignado en el título de apremio, imputándose los pagos parciales del crédito de ARBA realizados de acuerdo con lo prescripto en el art. 142 del C.F.; b) iniciar un nuevo juicio fundado en el título ejecutivo que emita la autoridad de aplicación.-</p>
+
+  <p style="margin-top: 0; margin-bottom: 0;">En prueba de conformidad, se firman tres ejemplares de un mismo tenor y a un solo efecto y recibiendo cada parte el suyo y el restante para acompañar al expediente judicial por parte del apoderada/o, pudiendo cualquiera de las partes solicitar su homologación judicial si fuere menester.-</p>
+
+</div>
+`;
+
+  document.getElementById('acuerdo-texto').innerHTML = html;
+  document.getElementById('form-acuerdo').style.display = 'none';
+  document.getElementById('resultado-acuerdo').classList.add('visible');
+}
+window.generarAcuerdo = generarAcuerdo;
+
+function limpiarAcuerdo() {
+  ['ac-apoderado','ac-juzgado','ac-expediente','ac-dni','ac-contribuyente','ac-domicilio']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      else el.value = '';
+    });
+  document.getElementById('titulos-inputs').innerHTML = '';
+  document.querySelectorAll('#rg-ident .radio-opt, #rg-titulos .radio-opt, #rg-caracter .radio-opt')
+    .forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll('input[name="identificacion"], input[name="cantTitulos"], input[name="caracter"]')
+    .forEach(i => i.checked = false);
+}
+window.limpiarAcuerdo = limpiarAcuerdo;
+
+function ocultarAcuerdo() {
+  document.getElementById('resultado-acuerdo').classList.remove('visible');
+  document.getElementById('form-acuerdo').style.display = 'block';
+}
+window.ocultarAcuerdo = ocultarAcuerdo;
+
+// ── Init ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name="minimoHono"]').forEach(radio => {
+    radio.addEventListener('change', onMinimoChange);
+  });
+  document.querySelectorAll('input[name="servicios"]').forEach(radio => {
+    radio.addEventListener('change', onServiciosChange);
+  });
+  onMinimoChange();
+  onServiciosChange();
+});
