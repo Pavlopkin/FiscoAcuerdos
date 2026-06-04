@@ -53,7 +53,6 @@ function selectRadio(groupId, el, val) {
   const input = el.querySelector('input[type="radio"]');
   if (input) {
     input.checked = true;
-    // Disparar manualmente los cambios para evitar que se congele la interfaz
     if (input.name === 'minimoHono') onMinimoChange();
     if (input.name === 'servicios') onServiciosChange();
   }
@@ -178,14 +177,14 @@ function calcularLiq() {
   const honorarios    = Math.max(honoCalculado, minimoValor);
 
   // Rubros — fórmulas
-  const tasa      = monto * 0.022;                        // 2,2 % del monto
-  const sobretasa = tasa * (sobretasaPct / 100);          // 5 % o 10 % de la tasa
-  const aportes   = honorarios * 0.10;                    // 10 % s/ honorarios
-  const honofisco = honorarios * 0.40;                    // interno, para el acuerdo
-  const honoapod  = honorarios * 0.60;                    // interno, para el acuerdo
+  const tasa      = monto * 0.022;
+  const sobretasa = tasa * (sobretasaPct / 100);
+  const aportes   = honorarios * 0.10;
+  const honofisco = honorarios * 0.40;
+  const honoapod  = honorarios * 0.60;
 
   // Costas e Impuestos
-  const totalCostas = tasa + sobretasa + gastos + servMonto;
+  const totalCostas  = tasa + sobretasa + gastos + servMonto;
   const subtotalHono = honorarios + aportes;
   const totalGeneral = totalCostas + subtotalHono;
 
@@ -198,28 +197,37 @@ function calcularLiq() {
   document.getElementById('liq-res-titulo').textContent =
     contribuyente + (juicio !== '—' ? ' — Juicio ' + juicio : '');
 
-  // Items en el mismo orden que el Excel
-  const items = [
-    ['Capital actualizado',                                    formatPeso(monto)],
-    ['Tasa de justicia (2,2 %)',                               formatPeso(tasa)],
-    [`Sobre tasa (${sobretasaPct} %)`,                         formatPeso(sobretasa)],
-    ['Gastos de juicio',                                       gastos > 0 ? formatPeso(gastos) : '—'],
-    ['Servicios registrales',                                  servMonto > 0 ? formatPeso(servMonto) : 'No aplica'],
-    ['Total costas',                                           formatPeso(totalCostas)],
-    [`Honorarios (${pct} % — mín. ${formatPeso(minimoValor)})`, formatPeso(honorarios)],
-    ['Aportes s/ honorarios (10 %)',                           formatPeso(aportes)],
-    ['Subtotal a cargo del deudor',                            formatPeso(subtotalHono)],
+  // ── Bloque 1: Costas
+  const itemsCostas = [
+    { label: 'Capital Actualizado',                         val: formatPeso(monto),                           bold: false },
+    { label: 'Tasa de Justicia (2,2 %)',                    val: formatPeso(tasa),                            bold: false },
+    { label: `Aporte de Sobre Tasa (${sobretasaPct} %)`,   val: formatPeso(sobretasa),                       bold: false },
+    { label: 'Gastos Estudio',                              val: gastos > 0 ? formatPeso(gastos) : '—',      bold: false },
+    { label: 'Servicios Registrales',                       val: servMonto > 0 ? formatPeso(servMonto) : '—', bold: false },
+    { label: 'Total Costas',                                val: formatPeso(totalCostas),                     bold: true  },
   ];
 
+  // ── Bloque 2: Honorarios
+  const itemsHonos = [
+    { label: 'Base Regulatoria',                            val: formatPeso(monto),                           bold: false },
+    { label: `Honorarios % (${pct} %)`,                    val: '',                                           bold: false },
+    { label: `Honorarios $ (mín. ${formatPeso(minimoValor)})`, val: formatPeso(honorarios),                  bold: false },
+    { label: 'Aporte s/ Honorarios (10 %)',                 val: formatPeso(aportes),                         bold: false },
+    { label: 'Sub Total a Cargo del Deudor',                val: formatPeso(subtotalHono),                    bold: true  },
+  ];
+
+  function renderItem(item) {
+    return `<div class="liq-item${item.bold ? ' liq-item--total' : ''}">
+      <span class="liq-item-label">${item.label}</span>
+      <span class="liq-item-val">${item.val}</span>
+    </div>`;
+  }
+
   const grid = document.getElementById('liq-items');
-  grid.innerHTML = '';
-  items.forEach(([label, val]) => {
-    grid.innerHTML +=
-      `<div class="liq-item">
-         <span class="liq-item-label">${label}</span>
-         <span class="liq-item-val">${val}</span>
-       </div>`;
-  });
+  grid.innerHTML =
+    itemsCostas.map(renderItem).join('') +
+    `<div class="liq-separator"></div>` +
+    itemsHonos.map(renderItem).join('');
 
   document.getElementById('liq-total-val').textContent = formatPeso(totalGeneral);
 
@@ -267,7 +275,7 @@ function generarAcuerdo() {
   const mes  = MESES[now.getMonth()];
   const anio = now.getFullYear();
 
-  // Datos del Firmante (Surgen del Formulario del Acuerdo)
+  // Datos del Firmante
   const contrib    = document.getElementById('ac-contribuyente').value || 'LA DEMANDADA';
   const tipoId     = (getRadioVal('identificacion') || 'DNI').toUpperCase();
   const dni        = document.getElementById('ac-dni').value || '—';
@@ -275,11 +283,10 @@ function generarAcuerdo() {
   const expediente = document.getElementById('ac-expediente').value || '—';
   const juzgado    = document.getElementById('ac-juzgado').value || '2';
   const apodVal    = document.getElementById('ac-apoderado').value;
-  
-  // Datos de los Autos (Surge el Apellido y Nombre de la Liquidación original)
+
+  // Datos de los Autos
   const contribLiq = document.getElementById('liq-contribuyente')?.value || contrib;
 
-  // Mapeo dinámico para mantener el nombre formal del Dr. Luparia según tu plantilla
   let apodNombre = APODERADOS[apodVal] || apodVal;
   if (apodVal === 'mauricio') {
     apodNombre = 'Dr. Mauricio Julián Luparia de la Colina';
@@ -304,7 +311,7 @@ function generarAcuerdo() {
     titulosTexto = titulosVals.slice(0, -1).join(', ') + ' y ' + titulosVals[titulosVals.length - 1];
   }
 
-  // Montos de la liquidación (si se calculó antes)
+  // Montos de la liquidación
   const d = window._liqData || {};
   const fmonto   = d.monto        ? formatPeso(d.monto)         : '$ ...........';
   const fmontoL  = d.monto        ? numeroALetras(d.monto)      : '............';
@@ -319,27 +326,28 @@ function generarAcuerdo() {
   const fserv    = (d.servMonto && d.servMonto > 0) ? formatPeso(d.servMonto) : '$ ...........';
   const fjuicio  = d.juicio       || document.getElementById('liq-juicio')?.value || '—';
 
-  // CONTENEDOR CORREGIDO: Se eliminó el "break-after" forzado y se expandió el ancho al 100%
+  const P = 'style="margin-top: 0; margin-bottom: 12px;"';
+
   const html = `
 <div style="text-align: justify; width: 100%; box-sizing: border-box; line-height: 1.5; color: var(--color-text); font-size: 13px; padding: 0 10px;">
 
-  <p style="margin-top: 0; margin-bottom: 12px;">En la ciudad de San Isidro a los <strong>${dia}</strong> días del mes de <strong>${mes}</strong> de <strong>${anio}</strong>, entre <strong>${contrib.toUpperCase()} (${tipoId} ${dni})</strong>, con domicilio en <strong>${dom}</strong>, en su carácter de <strong>${caracter}</strong>, por una parte, en adelante "LA DEMANDADA"; y por otra, el <strong>${apodNombre}</strong>, con domicilio constituido en calle Ituzaingo Nº 321 Depto. 52 de San Isidro, en su carácter de apoderado fiscal de la Provincia de Buenos Aires en los términos de los arts. 4 y 4 bis del decreto ley 7543/69 (t.o. y sus modificatorios), en adelante "EL APODERADO", tal como se acredita en los autos caratulados <strong>"FISCO DE LA PROVINCIA DE BUENOS AIRES c/ ${contribLiq.toUpperCase()} s/APREMIO"</strong>, expediente <strong>${expediente}</strong>, de trámite por ante el Juzgado en lo Contencioso Administrativo N° <strong>${juzgado}</strong>, del Departamento Judicial de San Isidro, con relación a la ejecución fiscal citada por la que se persigue el cobro de los períodos/adelantos individualizados en el/los título/s ejecutivo/s <strong>${titulosTexto}</strong>, juicio <strong>${fjuicio}</strong>, con el objeto de poner fin al apremio se hace constar lo siguiente:</p>
+  <p ${P}>En la ciudad de San Isidro a los <strong>${dia}</strong> días del mes de <strong>${mes}</strong> de <strong>${anio}</strong>, entre <strong>${contrib.toUpperCase()} (${tipoId} ${dni})</strong>, con domicilio en <strong>${dom}</strong>, en su carácter de <strong>${caracter}</strong>, por una parte, en adelante "LA DEMANDADA"; y por otra, el <strong>${apodNombre}</strong>, con domicilio constituido en calle Ituzaingo Nº 321 Depto. 52 de San Isidro, en su carácter de apoderado fiscal de la Provincia de Buenos Aires en los términos de los arts. 4 y 4 bis del decreto ley 7543/69 (t.o. y sus modificatorios), en adelante "EL APODERADO", tal como se acredita en los autos caratulados <strong>"FISCO DE LA PROVINCIA DE BUENOS AIRES c/ ${contribLiq.toUpperCase()} s/APREMIO"</strong>, expediente <strong>${expediente}</strong>, de trámite por ante el Juzgado en lo Contencioso Administrativo N° <strong>${juzgado}</strong>, del Departamento Judicial de San Isidro, con relación a la ejecución fiscal citada por la que se persigue el cobro de los períodos/adelantos individualizados en el/los título/s ejecutivo/s <strong>${titulosTexto}</strong>, juicio <strong>${fjuicio}</strong>, con el objeto de poner fin al apremio se hace constar lo siguiente:</p>
 
-  <p style="margin-top: 0; margin-bottom: 12px;"><strong>PRIMERA:</strong> LA DEMANDADA reconoce adeudar al Fisco la totalidad de la deuda reclamada en el apremio detallado, renunciando a toda reclamación impugnatoria administrativa o judicial de la deuda mencionada, también se notifica y consiente expresamente las medidas cautelares trabadas o a trabarse, ya sean judiciales -cuyo levantamiento queda a cargo de LA DEMANDADA cuando corresponda según el plan- o administrativas que se efectivicen sobre bienes muebles, inmuebles, financieros o de cualquier otra naturaleza. El monto que se utiliza, salvo error u omisión, para el presente acuerdo es el de <strong>${fmontoL} (${fmonto})</strong>, que surge de la página de ARBA con la salvedad contenida en los párrafos siguientes de esta primera cláusula. Se adjunta el presente convenio, y como parte integrante del mismo, una impresión conocida y consentida por LA DEMANDADA de los diferentes montos que surgen de la página Web de ARBA, que arrojan importes disímiles según opta LA DEMANDADA y que inciden directamente en el mayor o menor monto de costas que debe abonar. Es decir, conoce que su elección irrevocable es abonar la deuda en ARBA en la cantidad de CUOTAS que declara al apoderado, y que en caso de posteriormente a la suscripción del acuerdo cambiar de plan, dicho acto tiene consecuencias directas en el monto total de las costas a abonar por este convenio. Conste que se ha llegado a concluir este acuerdo por vía telefónica y/o electrónica quedando sujeto su perfeccionamiento a los pagos íntegros de todos los rubros detallados abajo y a la regularización del crédito de ARBA por parte del LA DEMANDADA. Se deja expresa constancia que en el juicio objeto del presente NO existe oposición de excepciones pendiente de tratamiento. De verificarse el ingreso a un plan con cuotas superior a las manifestadas, LA DEMANDADA deberá cancelar las diferencias que resulten de calcular nuevamente las costas. Para ello, se tomará el monto que corresponda consignado en el formulario de acogimiento expedido por ARBA. Si se le permitiere por cualquier motivo ingresar en un plan por un monto menor nada podrá reclamar LA DEMANDADA a LA ACTORA, ni al Apoderada/o Fiscal, ni a la Caja de Previsión, ni al Poder Judicial ya que lo ha hecho voluntariamente y prestando su consentimiento claramente informado. En el caso en que se disponga judicialmente, aún contra la voluntad expresada por LA DEMANDADA in este convenio, la devolución de Tasa de Justicia, Sobre Tasa, Gastos de Estudio, Aportes Previsionales u Honorarios, se exime a LA ACTORA y a su apoderada/o de cualquier gestión personal o profesional al respecto. Se deja constancia que los montos tenidos en cuenta surgen de la Web de ARBA en el día de hoy, que varían diariamente por acumulación de intereses, que si existe plan de facilidades puede haber vencido el horario para efectuar el acogimiento, que el eventual plan de facilidades tiene fecha de finalización que LA DEMANDADA manifiesta conocer, e incluso que para su tipo de deuda puede no existir plan de facilidades.-</p>
-  
-  <p style="margin-top: 0; margin-bottom: 12px;"><strong>SEGUNDA:</strong> Las partes acuerdan fijar los honorarios del letrado apoderada/o del Fisco de la Provincia de Buenos Aires, en la suma total de <strong>${fhonoL} (${fhono})</strong> pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente. Asimismo, las partes convienen que dicho monto será cancelado por LA DEMANDADA en UN PAGO.-</p>
+  <p ${P}><strong>PRIMERA:</strong> LA DEMANDADA reconoce adeudar al Fisco la totalidad de la deuda reclamada en el apremio detallado, renunciando a toda reclamación impugnatoria administrativa o judicial de la deuda mencionada, también se notifica y consiente expresamente las medidas cautelares trabadas o a trabarse, ya sean judiciales -cuyo levantamiento queda a cargo de LA DEMANDADA cuando corresponda según el plan- o administrativas que se efectivicen sobre bienes muebles, inmuebles, financieros o de cualquier otra naturaleza. El monto que se utiliza, salvo error u omisión, para el presente acuerdo es el de <strong>${fmontoL} (${fmonto})</strong>, que surge de la página de ARBA con la salvedad contenida en los párrafos siguientes de esta primera cláusula. Se adjunta el presente convenio, y como parte integrante del mismo, una impresión conocida y consentida por LA DEMANDADA de los diferentes montos que surgen de la página Web de ARBA, que arrojan importes disímiles según opta LA DEMANDADA y que inciden directamente en el mayor o menor monto de costas que debe abonar. Es decir, conoce que su elección irrevocable es abonar la deuda en ARBA en la cantidad de CUOTAS que declara al apoderado, y que en caso de posteriormente a la suscripción del acuerdo cambiar de plan, dicho acto tiene consecuencias directas en el monto total de las costas a abonar por este convenio. Conste que se ha llegado a concluir este acuerdo por vía telefónica y/o electrónica quedando sujeto su perfeccionamiento a los pagos íntegros de todos los rubros detallados abajo y a la regularización del crédito de ARBA por parte del LA DEMANDADA. Se deja expresa constancia que en el juicio objeto del presente NO existe oposición de excepciones pendiente de tratamiento. De verificarse el ingreso a un plan con cuotas superior a las manifestadas, LA DEMANDADA deberá cancelar las diferencias que resulten de calcular nuevamente las costas. Para ello, se tomará el monto que corresponda consignado en el formulario de acogimiento expedido por ARBA. Si se le permitiere por cualquier motivo ingresar en un plan por un monto menor nada podrá reclamar LA DEMANDADA a LA ACTORA, ni al Apoderada/o Fiscal, ni a la Caja de Previsión, ni al Poder Judicial ya que lo ha hecho voluntariamente y prestando su consentimiento claramente informado. En el caso en que se disponga judicialmente, aún contra la voluntad expresada por LA DEMANDADA in este convenio, la devolución de Tasa de Justicia, Sobre Tasa, Gastos de Estudio, Aportes Previsionales u Honorarios, se exime a LA ACTORA y a su apoderada/o de cualquier gestión personal o profesional al respecto. Se deja constancia que los montos tenidos en cuenta surgen de la Web de ARBA en el día de hoy, que varían diariamente por acumulación de intereses, que si existe plan de facilidades puede haber vencido el horario para efectuar el acogimiento, que el eventual plan de facilidades tiene fecha de finalización que LA DEMANDADA manifiesta conocer, e incluso que para su tipo de deuda puede no existir plan de facilidades.-</p>
 
-  <p style="margin-top: 0; margin-bottom: 12px;"><strong>TERCERA:</strong> En consecuencia, LA DEMANDADA asume e integra, las siguientes sumas:<br>
-  1) <strong>${ftasa}</strong> en concepto de Tasa de Justicia,<br>
-  2) <strong>${fstasa}</strong> en concepto de Sobre Tasa de Justicia,<br>
-  3) <strong>${fhono}</strong> en concepto de honorarios convenidos por la actuación profesional de la parte actora en los autos citados (de los cuales <strong>${fhonoF}</strong> en concepto de Honorarios para Fiscalía de Estado en virtud del convenio de cesión correspondiente al 40% de la totalidad de los honorarios convenidos, y <strong>${fhonoA}</strong> (60%) por la actuación del profesional de la parte actora) –pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente–<br>
-  4) <strong>${faporte}</strong> en concepto de aportes previsionales a cargo de LA DEMANDADA;<br>
-  5) <strong>${fserv}</strong> en concepto de Servicios Registrales;<br>
-  6) <strong>${fgastos}</strong> en concepto de gastos generales.</p>
+  <p ${P}><strong>SEGUNDA:</strong> Las partes acuerdan fijar los honorarios del letrado apoderada/o del Fisco de la Provincia de Buenos Aires, en la suma total de <strong>${fhonoL} (${fhono})</strong> pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente. Asimismo, las partes convienen que dicho monto será cancelado por LA DEMANDADA en UN PAGO.-</p>
 
-  <p style="margin-top: 0; margin-bottom: 12px;">Se deja constancia que el demandado asume la responsabilidad de cancelar cualquier saldo que se pueda adeudar por diferencias a su cargo. Asimismo, se aclara que los gastos causídicos pactados en el presente corresponderá a la actividad procesal desarrollada por el Apoderada/o hasta la fecha del presente, pudiendo modificarse dicho concepto en caso de incumplimiento del acuerdo.-</p>
+  <p ${P}><strong>TERCERA:</strong> En consecuencia, LA DEMANDADA asume e integra, las siguientes sumas:</p>
+  <p ${P}>1) <strong>${ftasa}</strong> en concepto de Tasa de Justicia,</p>
+  <p ${P}>2) <strong>${fstasa}</strong> en concepto de Sobre Tasa de Justicia,</p>
+  <p ${P}>3) <strong>${fhono}</strong> en concepto de honorarios convenidos por la actuación profesional de la parte actora en los autos citados (de los cuales <strong>${fhonoF}</strong> en concepto de Honorarios para Fiscalía de Estado en virtud del convenio de cesión correspondiente al 40% de la totalidad de los honorarios convenidos, y <strong>${fhonoA}</strong> (60%) por la actuación del profesional de la parte actora) –pactados de conformidad a las resoluciones dictadas al efecto, las cuales LA DEMANDADA declara conocer y consiente–</p>
+  <p ${P}>4) <strong>${faporte}</strong> en concepto de aportes previsionales a cargo de LA DEMANDADA;</p>
+  <p ${P}>5) <strong>${fserv}</strong> en concepto de Servicios Registrales;</p>
+  <p ${P}>6) <strong>${fgastos}</strong> en concepto de gastos generales.</p>
 
-  <p style="margin-top: 0; margin-bottom: 12px;"><strong>CUARTA:</strong> LA DEMANDADA regularizará el importe adeudado acogiéndose al plan de pago EN CUOTAS A LAS QUE PUEDA ACCEDER VÍA WEB NO PRESENCIAL EN EL SITIO DE ARBA dentro de los cinco (5) días corridos a partir de la fecha de celebración del acuerdo, por el importe que le liquide la ARBA –con la reserva realizada en la cláusula PRIMERA-. En caso de no poder regularizar la deuda en la Web de ARBA con la ayuda que se encuentra operativa de Chat, WhatsApp, Instagram, Facebook y Twitter, deberá hacerlo presencialmente dentro de los primeros treinta (30) días luego de reanudada la atención presencial, con un máximo de 90 días a partir de la fecha. Asume igualmente la obligación de acreditar ante el apoderada/o el efectivo acogimiento dentro de los dos (2) días hábiles posteriores a su ingreso en ARBA con lo que quedará perfeccionado el presente acuerdo. Se deja constancia que ante el incumplimiento del plan de pago que se acuerde con ARBA, el Fisco queda facultado para: a) ejecutar la totalidad del crédito consignado en el título de apremio, imputándose los pagos parciales del crédito de ARBA realizados de acuerdo con lo prescripto en el art. 142 del C.F.; b) iniciar un nuevo juicio fundado en el título ejecutivo que emita la autoridad de aplicación.-</p>
+  <p ${P}>Se deja constancia que el demandado asume la responsabilidad de cancelar cualquier saldo que se pueda adeudar por diferencias a su cargo. Asimismo, se aclara que los gastos causídicos pactados en el presente corresponderá a la actividad procesal desarrollada por el Apoderada/o hasta la fecha del presente, pudiendo modificarse dicho concepto en caso de incumplimiento del acuerdo.-</p>
+
+  <p ${P}><strong>CUARTA:</strong> LA DEMANDADA regularizará el importe adeudado acogiéndose al plan de pago EN CUOTAS A LAS QUE PUEDA ACCEDER VÍA WEB NO PRESENCIAL EN EL SITIO DE ARBA dentro de los cinco (5) días corridos a partir de la fecha de celebración del acuerdo, por el importe que le liquide la ARBA –con la reserva realizada en la cláusula PRIMERA-. En caso de no poder regularizar la deuda en la Web de ARBA con la ayuda que se encuentra operativa de Chat, WhatsApp, Instagram, Facebook y Twitter, deberá hacerlo presencialmente dentro de los primeros treinta (30) días luego de reanudada la atención presencial, con un máximo de 90 días a partir de la fecha. Asume igualmente la obligación de acreditar ante el apoderada/o el efectivo acogimiento dentro de los dos (2) días hábiles posteriores a su ingreso en ARBA con lo que quedará perfeccionado el presente acuerdo. Se deja constancia que ante el incumplimiento del plan de pago que se acuerde con ARBA, el Fisco queda facultado para: a) ejecutar la totalidad del crédito consignado en el título de apremio, imputándose los pagos parciales del crédito de ARBA realizados de acuerdo con lo prescripto en el art. 142 del C.F.; b) iniciar un nuevo juicio fundado en el título ejecutivo que emita la autoridad de aplicación.-</p>
 
   <p style="margin-top: 0; margin-bottom: 0;">En prueba de conformidad, se firman tres ejemplares de un mismo tenor y a un solo efecto y recibiendo cada parte el suyo y el restante para acompañar al expediente judicial por parte del apoderada/o, pudiendo cualquiera de las partes solicitar su homologación judicial si fuere menester.-</p>
 
@@ -376,7 +384,6 @@ window.ocultarAcuerdo = ocultarAcuerdo;
 
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Asignar el evento dinámico directamente a los elementos de tipo radio input internos
   document.querySelectorAll('input[name="minimoHono"]').forEach(radio => {
     radio.addEventListener('change', onMinimoChange);
   });
@@ -386,3 +393,4 @@ document.addEventListener('DOMContentLoaded', () => {
   onMinimoChange();
   onServiciosChange();
 });
+
