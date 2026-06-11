@@ -24,9 +24,9 @@ const MESES = [
 ];
 
 const APODERADOS = {
-  natalia:  'Natalia',
-  mauricio: 'Mauricio',
-  maximina: 'Maximina'
+  natalia:  'Natalia Laura Varady',
+  mauricio: 'Mauricio Julián Luparia de la Colina',
+  maximina: 'Maximina Paz Luparia de la Colina'
 };
 
 const GASTOS_MINIMO_B = 33998;
