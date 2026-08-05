@@ -8,9 +8,11 @@
    Tasa de justicia:  2,2 % del monto reclamado
    Sobre tasa:        5 % o 10 % de la tasa de justicia
    Honorarios %:      6, 9, 12, 15, 18 % (con mínimo aplicable)
-   Honorario mínimo A: $ 149.250  →  gastos según opción del formulario
-   Honorario mínimo B: $ 101.994  →  gastos SIEMPRE fijos en $ 33.998
-   Gastos:            $ 24.875  |  $ 49.750  |  $ 33.998 (automático)
+   Honorario mínimo A: $ 159.696
+   Honorario mínimo B: $ 109.134
+   Gastos de juicio:  $ 26.616  |  $ 53.232  |  Gastos casos viejos $ 36.378
+                      (siempre elegibles manualmente, sin importar el
+                      mínimo de honorarios seleccionado)
    Servicios reg.:    opcional, montos $ 84.000 / 168.000 / 252.000
    Aportes s/ hono:   10 % sobre honorarios
    ============================================================ */
@@ -29,9 +31,8 @@ const APODERADOS = {
   maximina: 'Maximina Paz Luparia de la Colina'
 };
 
-const GASTOS_MINIMO_B = 33998;
-const MINIMO_A        = 149250;
-const MINIMO_B        = 101994;
+const MINIMO_A        = 159696;
+const MINIMO_B        = 109134;
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -111,20 +112,13 @@ window.switchTab = switchTab;
 // ── Lógica de visibilidad dinámica ───────────────────────────
 
 function onMinimoChange() {
-  const minimo = getRadioVal('minimoHono');
+  // Gastos de juicio queda siempre visible y seleccionable manualmente,
+  // sin importar el mínimo de honorarios elegido (incluye la opción
+  // "Gastos casos viejos").
   const gastosWrap = document.getElementById('gastos-wrap');
   const gastosHint = document.getElementById('gastos-hint');
-
-  if (minimo === 'B') {
-    if (gastosWrap) gastosWrap.style.display = 'none';
-    if (gastosHint) {
-      gastosHint.textContent = 'Gastos fijos: ' + formatPeso(GASTOS_MINIMO_B);
-      gastosHint.style.display = 'block';
-    }
-  } else {
-    if (gastosWrap) gastosWrap.style.display = 'block';
-    if (gastosHint) gastosHint.style.display = 'none';
-  }
+  if (gastosWrap) gastosWrap.style.display = 'block';
+  if (gastosHint) gastosHint.style.display = 'none';
 }
 
 function onServiciosChange() {
@@ -163,13 +157,9 @@ function calcularLiq() {
     ? parseFloat(document.getElementById('liq-selectorServicios').value) || 0
     : 0;
 
-  // Gastos según mínimo elegido
-  let gastos;
-  if (minimoHono === 'B') {
-    gastos = GASTOS_MINIMO_B;
-  } else {
-    gastos = parseFloat(getRadioVal('gastos')) || 0;
-  }
+  // Gastos: siempre según la opción elegida manualmente
+  // (incluye $ 26.616 / $ 53.232 / Gastos casos viejos $ 36.378)
+  const gastos = parseFloat(getRadioVal('gastos')) || 0;
 
   // Honorarios: max(calculado, mínimo)
   const minimoValor   = (minimoHono === 'B') ? MINIMO_B : MINIMO_A;
