@@ -10,7 +10,7 @@
    Honorarios %:      6, 9, 12, 15, 18 % (con mínimo aplicable)
    Honorario mínimo A: $ 159.696
    Honorario mínimo B: $ 109.134
-   Gastos de juicio:  $ 26.616  |  $ 53.232  |  Gastos casos viejos $ 36.378
+   Gastos de juicio:  $ 27.415  |  $ 54.829  |  Gastos casos viejos $ 37.469
                       (siempre elegibles manualmente, sin importar el
                       mínimo de honorarios seleccionado)
    Servicios reg.:    opcional, montos $ 84.000 / 168.000 / 252.000
@@ -158,7 +158,7 @@ function calcularLiq() {
     : 0;
 
   // Gastos: siempre según la opción elegida manualmente
-  // (incluye $ 26.616 / $ 53.232 / Gastos casos viejos $ 36.378)
+  // (incluye $ 27.415 / $ 54.829 / Gastos casos viejos $ 37.469)
   const gastos = parseFloat(getRadioVal('gastos')) || 0;
 
   // Honorarios: max(calculado, mínimo)
@@ -383,4 +383,5 @@ document.addEventListener('DOMContentLoaded', () => {
   onMinimoChange();
   onServiciosChange();
 });
+
 
