@@ -8,8 +8,8 @@
    Tasa de justicia:  2,2 % del monto reclamado
    Sobre tasa:        5 % o 10 % de la tasa de justicia
    Honorarios %:      6, 9, 12, 15, 18 % (con mínimo aplicable)
-   Honorario mínimo A: $ 159.696
-   Honorario mínimo B: $ 109.134
+   Honorario mínimo A: $ 164.487
+   Honorario mínimo B: $ 112.407
    Gastos de juicio:  $ 27.415  |  $ 54.829  |  Gastos casos viejos $ 37.469
                       (siempre elegibles manualmente, sin importar el
                       mínimo de honorarios seleccionado)
@@ -31,8 +31,8 @@ const APODERADOS = {
   maximina: 'Maximina Paz Luparia de la Colina'
 };
 
-const MINIMO_A        = 159696;
-const MINIMO_B        = 109134;
+const MINIMO_A        = 164487;
+const MINIMO_B        = 112407;
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -383,5 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
   onMinimoChange();
   onServiciosChange();
 });
+
 
 
